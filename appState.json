@@ -1,30 +1,30 @@
 {
   "EDITOR_STATE": {
     "allProjectFiles": {
-      "b666bcbf-7e5a-45e1-a1b1-32676f56daa7": {
-        "id": "b666bcbf-7e5a-45e1-a1b1-32676f56daa7",
+      "2739be3b-3fc4-4db4-9e59-40edc0f942be": {
+        "id": "2739be3b-3fc4-4db4-9e59-40edc0f942be",
         "parent": null,
         "name": "text-analysis-via-sns-post-processing",
         "type": "DIRECTORY",
         "isDirectory": true,
         "children": [
-          "1d0c39ce-eb8d-42b3-8449-cd887cb728b0",
-          "1d11bb57-00da-4438-84cf-1c22ea5fef45",
-          "3723a036-0e2e-4da3-a9c5-9bab3660d4ff"
+          "d9a6e338-0119-489e-a093-1a1ecff42309",
+          "112e378a-c106-43c2-8db6-51f79250e433",
+          "ae6cec72-2f6b-4d85-938f-1e7381b99924"
         ],
         "isRemovable": false,
         "filePath": "text-analysis-via-sns-post-processing"
       },
-      "1d0c39ce-eb8d-42b3-8449-cd887cb728b0": {
-        "id": "1d0c39ce-eb8d-42b3-8449-cd887cb728b0",
-        "parent": "b666bcbf-7e5a-45e1-a1b1-32676f56daa7",
+      "d9a6e338-0119-489e-a093-1a1ecff42309": {
+        "id": "d9a6e338-0119-489e-a093-1a1ecff42309",
+        "parent": "2739be3b-3fc4-4db4-9e59-40edc0f942be",
         "name": "addNote.js",
         "type": "JS_LAMBDA",
         "isDirectory": false,
         "children": [],
         "isRemovable": true,
         "filePath": "text-analysis-via-sns-post-processing/addNote.js",
-        "code": "'use strict';\n\nconst AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-dependencies\nconst config = require('./config.js');\n\nconst sns = new AWS.SNS();\n\nmodule.exports.addNote = (event, context, callback) => {\n  const data = JSON.parse(event.body);\n  if (typeof data.note !== 'string') {\n    console.error('Validation Failed');\n    callback(null, {\n      statusCode: 400,\n      headers: { 'Content-Type': 'text/plain' },\n      body: 'Couldn\\'t add the note.',\n    });\n    return;\n  }\n\n  const params = {\n    Message: data.note,\n    TopicArn: `arn:aws:sns:us-east-1:${config.awsAccountId}:analyzeNote`,\n  };\n\n  sns.publish(params, (error) => {\n    if (error) {\n      console.error(error);\n      callback(null, {\n        statusCode: 501,\n        headers: { 'Content-Type': 'text/plain' },\n        body: 'Couldn\\'t add the note due an internal error. Please try again later.',\n      });\n    }\n    // create a resonse\n    const response = {\n      statusCode: 200,\n      body: JSON.stringify({ message: 'Successfully added the note.' }),\n    };\n    callback(null, response);\n  });\n};\n",
+        "code": "'use strict';\n\nconst AWS = require('aws-sdk'); // eslint-disable-line import/no-extraneous-dependencies\nconst config = require('./config.js');\n\nconst sns = new AWS.SNS();\n\nmodule.exports.addNote = (event, context, callback) => {\n  const data = JSON.parse(event.body);\n  if (typeof data.note !== 'string') {\n    console.error('Validation Failed');\n    callback(null, {\n      statusCode: 400,\n      headers: { 'Content-Type': 'text/plain' },\n      body: 'Couldn\\'t add the note......',\n    });\n    return;\n  }\n\n  const params = {\n    Message: data.note,\n    TopicArn: `arn:aws:sns:us-east-1:${config.awsAccountId}:analyzeNote`,\n  };\n\n  sns.publish(params, (error) => {\n    if (error) {\n      console.error(error);\n      callback(null, {\n        statusCode: 501,\n        headers: { 'Content-Type': 'text/plain' },\n        body: 'Couldn\\'t add the note due an internal error. Please try again later.',\n      });\n    }\n    // create a resonse\n    const response = {\n      statusCode: 200,\n      body: JSON.stringify({ message: 'Successfully added the note.' }),\n    };\n    callback(null, response);\n  });\n};\n",
         "config": {
           "runtime": "nodejs8.10",
           "handler": "addNote",
@@ -50,9 +50,9 @@
           ]
         }
       },
-      "1d11bb57-00da-4438-84cf-1c22ea5fef45": {
-        "id": "1d11bb57-00da-4438-84cf-1c22ea5fef45",
-        "parent": "b666bcbf-7e5a-45e1-a1b1-32676f56daa7",
+      "112e378a-c106-43c2-8db6-51f79250e433": {
+        "id": "112e378a-c106-43c2-8db6-51f79250e433",
+        "parent": "2739be3b-3fc4-4db4-9e59-40edc0f942be",
         "name": "analyzeNote.js",
         "type": "JS_LAMBDA",
         "isDirectory": false,
@@ -85,8 +85,8 @@
           ]
         }
       },
-      "0d95e632-5e65-4c3e-82a7-2bebaeb20a00": {
-        "id": "0d95e632-5e65-4c3e-82a7-2bebaeb20a00",
+      "1cafc5fb-7b3f-4cd9-a15a-462b0f3506e2": {
+        "id": "1cafc5fb-7b3f-4cd9-a15a-462b0f3506e2",
         "parent": null,
         "name": "serverless.yml",
         "type": "YAML_FILE",
@@ -96,8 +96,8 @@
         "filePath": "serverless.yml",
         "code": "service: text-analysis-via-sns-post-processing\n\nframeworkVersion: \">=1.1.0 <2.0.0\"\n\nprovider:\n  name: aws\n  runtime: nodejs8.10\n  region: us-east-1\n  stage: dev\n  iamRoleStatements:\n    - Effect: \"Allow\"\n      Resource: \"*\"\n      Action:\n        - \"sns:*\"\n\nfunctions:\n  addNote:\n    handler: addNote.addNote\n    events:\n      - http:\n          path: notes\n          method: post\n          cors: true\n\n  analyzeNote:\n    handler: analyzeNote.analyzeNote\n    events:\n      - sns: analyzeNote\n"
       },
-      "5023d22b-7c1b-4bfc-a6e1-1d2741e2fe4e": {
-        "id": "5023d22b-7c1b-4bfc-a6e1-1d2741e2fe4e",
+      "7329c5d1-7c24-415e-b006-c1dbe1362001": {
+        "id": "7329c5d1-7c24-415e-b006-c1dbe1362001",
         "parent": null,
         "name": "README.md",
         "type": "MARKDOWN_FILE",
@@ -107,8 +107,8 @@
         "filePath": "README.md",
         "code": "<!--\ntitle: 'AWS Data Processing example in NodeJS'\ndescription: 'This example demonstrates how to setup a simple data processing pipeline.'\nlayout: Doc\nframework: v1\nplatform: AWS\nlanguage: nodeJS\nauthorLink: 'https://github.com/adambrgmn'\nauthorName: 'Adam Bergman'\nauthorAvatar: 'https://avatars1.githubusercontent.com/u/13746650?v=4&s=140'\n-->\n# Data processing\n\nThis example demonstrates how to setup a simple data processing pipeline. The service exposes one HTTP endpoint that allows you to add a text note. This HTTP endpoint returns instantly to provide a good user experience while the actual analysis is deferred. Only messages above a certain sentiment level are actually saved.\n\nInstead of invoking another Lambda function directly it's considered best practice to store the note as a message in a SNS queue. The queue has certain benefits compared to invoking the `analyzeNote` function directly. The queue supports retries in case the analyzeNote function fails as well as back-off to avoid too many concurrent invocations.\n\n## Setup\n\n```bash\nnpm install\n```\n\nIn order to use SNS you need to add your AWS account ID to config.js. There is already a placeholder: `XXXXXXXXXXXX`.\n\nYou can retrieve the your account ID by running this command (you need the AWS SDK installed)\n\n```bash\naws sts get-caller-identity --output text --query Account\n```\n\n# Explanation\n\n- sns topic will be added by default\n\n## Deploy\n\nIn order to deploy the you endpoint simply run\n\n```bash\nserverless deploy\n```\n\nThe expected result should be similar to:\n\n```bash\nServerless: Packaging serviceâ¦\nServerless: Uploading CloudFormation file to S3â¦\nServerless: Uploading service .zip file to S3â¦\nServerless: Updating Stackâ¦\nServerless: Checking Stack update progressâ¦\n............\nServerless: Stack update finishedâ¦\nServerless: Removing old service versionsâ¦\n\nService Information\nservice: text-analysis-via-post-processing\nstage: dev\nregion: us-east-1\napi keys:\n  None\nendpoints:\n  POST - https://5cvfn0wwv7.execute-api.us-east-1.amazonaws.com/dev/notes\nfunctions:\n  text-analysis-via-post-processing-dev-analyzeNote: arn:aws:lambda:us-east-1:377024778620:function:text-analysis-via-post-processing-dev-analyzeNote\n  text-analysis-via-post-processing-dev-addNote: arn:aws:lambda:us-east-1:377024778620:function:text-analysis-via-post-processing-dev-addNote\n```\n\n## Usage\n\nIn order to add a note run\n\n```bash\ncurl -X POST https://XXXXXXXXX.execute-api.us-east-1.amazonaws.com/dev/notes --data '{ \"note\": \"This is such a great Day\" }'\n```\n\nYou should see the following output\n\n```bash\n{\"message\":\"Successfully added the note.\"}%\n```\n\nTo verify that the note has been processed run\n\n```bash\nserverless logs --function analyzeNote\n```\n\nThis command will show you the logged output and looks liked this\n\n```bash\nSTART RequestId: 75a970ba-ab11e6-809d-435833490828 Version: $LATEST\n2015 17:56:32.497 (+01:00)\t75a970ba-ab11e6-809d-435833490828\tPositive note - will be published: This is such a great Day\nEND RequestId: 75a970ba-ab11e6-809d-435833490828\nREPORT RequestId: 75a970ba-ab11e6-809d-435833490828\tDuration: 3.45 ms\tBilled Duration: 100 ms \tMemory Size: 1024 MB\tMax Memory Used: 15 MB\n```\n\nYou can play with the system and see which notes will be published and which won't.\n\n# Scaling\n\nTODO\n"
       },
-      "113ea0ba-0aa2-4ffd-974f-b7a8d3efef77": {
-        "id": "113ea0ba-0aa2-4ffd-974f-b7a8d3efef77",
+      "6eab711a-e75d-48ff-9121-6631ee6c55c3": {
+        "id": "6eab711a-e75d-48ff-9121-6631ee6c55c3",
         "parent": null,
         "name": ".gitignore",
         "type": "TEXT_FILE",
@@ -118,9 +118,9 @@
         "filePath": ".gitignore",
         "code": "node_modules\n.serverless\n"
       },
-      "3723a036-0e2e-4da3-a9c5-9bab3660d4ff": {
-        "id": "3723a036-0e2e-4da3-a9c5-9bab3660d4ff",
-        "parent": "b666bcbf-7e5a-45e1-a1b1-32676f56daa7",
+      "ae6cec72-2f6b-4d85-938f-1e7381b99924": {
+        "id": "ae6cec72-2f6b-4d85-938f-1e7381b99924",
+        "parent": "2739be3b-3fc4-4db4-9e59-40edc0f942be",
         "name": "config.js",
         "type": "JS_FILE",
         "isDirectory": false,
@@ -129,8 +129,8 @@
         "filePath": "text-analysis-via-sns-post-processing/config.js",
         "code": "'use strict';\n\nmodule.exports = {\n  awsAccountId: 'XXXXXXXXXXXX',\n};\n"
       },
-      "fa23e0de-3c59-48e7-b4a1-72f6861d683c": {
-        "id": "fa23e0de-3c59-48e7-b4a1-72f6861d683c",
+      "c7f82346-6026-44eb-8736-3de1315f4319": {
+        "id": "c7f82346-6026-44eb-8736-3de1315f4319",
         "parent": null,
         "name": "package.json",
         "type": "JSON_FILE",
@@ -142,11 +142,11 @@
       }
     },
     "deletedFiles": [],
-    "rootNode": "b666bcbf-7e5a-45e1-a1b1-32676f56daa7",
+    "rootNode": "2739be3b-3fc4-4db4-9e59-40edc0f942be",
     "openFiles": [
-      "1d0c39ce-eb8d-42b3-8449-cd887cb728b0"
+      "d9a6e338-0119-489e-a093-1a1ecff42309"
     ],
-    "currentFileId": "1d0c39ce-eb8d-42b3-8449-cd887cb728b0",
+    "currentFileId": "d9a6e338-0119-489e-a093-1a1ecff42309",
     "resources": {
       "apigusEast1addNotenotespost": {
         "type": "API_GATEWAY",
@@ -211,7 +211,7 @@
     "projectRegion": "us-east-1",
     "platform": "AWS",
     "platformRegions": {},
-    "lastSave": 1561979211766
+    "lastSave": 1561979670310
   },
   "VCS_STATE": {
     "provider": "GitHub",

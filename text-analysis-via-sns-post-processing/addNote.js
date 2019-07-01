@@ -12,7 +12,7 @@ module.exports.addNote = (event, context, callback) => {
     callback(null, {
       statusCode: 400,
       headers: { 'Content-Type': 'text/plain' },
-      body: 'Couldn\'t add the note.',
+      body: 'Couldn\'t add the note......',
     });
     return;
   }
