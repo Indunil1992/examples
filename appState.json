@@ -1,23 +1,23 @@
 {
   "EDITOR_STATE": {
     "allProjectFiles": {
-      "c137ea2b-861f-4013-908d-a905a159e73a": {
-        "id": "c137ea2b-861f-4013-908d-a905a159e73a",
+      "b666bcbf-7e5a-45e1-a1b1-32676f56daa7": {
+        "id": "b666bcbf-7e5a-45e1-a1b1-32676f56daa7",
         "parent": null,
         "name": "text-analysis-via-sns-post-processing",
         "type": "DIRECTORY",
         "isDirectory": true,
         "children": [
-          "7e7bb056-e93d-4ec7-905e-e04bbcff65a8",
-          "5883448e-80f1-43d9-b4f6-c2b9c14f3235",
-          "54647ee9-2a00-4319-9635-26507a1e1ce6"
+          "1d0c39ce-eb8d-42b3-8449-cd887cb728b0",
+          "1d11bb57-00da-4438-84cf-1c22ea5fef45",
+          "3723a036-0e2e-4da3-a9c5-9bab3660d4ff"
         ],
         "isRemovable": false,
         "filePath": "text-analysis-via-sns-post-processing"
       },
-      "7e7bb056-e93d-4ec7-905e-e04bbcff65a8": {
-        "id": "7e7bb056-e93d-4ec7-905e-e04bbcff65a8",
-        "parent": "c137ea2b-861f-4013-908d-a905a159e73a",
+      "1d0c39ce-eb8d-42b3-8449-cd887cb728b0": {
+        "id": "1d0c39ce-eb8d-42b3-8449-cd887cb728b0",
+        "parent": "b666bcbf-7e5a-45e1-a1b1-32676f56daa7",
         "name": "addNote.js",
         "type": "JS_LAMBDA",
         "isDirectory": false,
@@ -34,7 +34,7 @@
         },
         "triggers": [
           {
-            "resourceName": "apigusEast1addNotenotesget",
+            "resourceName": "apigusEast1addNotenotespost",
             "config": {}
           }
         ],
@@ -50,9 +50,9 @@
           ]
         }
       },
-      "5883448e-80f1-43d9-b4f6-c2b9c14f3235": {
-        "id": "5883448e-80f1-43d9-b4f6-c2b9c14f3235",
-        "parent": "c137ea2b-861f-4013-908d-a905a159e73a",
+      "1d11bb57-00da-4438-84cf-1c22ea5fef45": {
+        "id": "1d11bb57-00da-4438-84cf-1c22ea5fef45",
+        "parent": "b666bcbf-7e5a-45e1-a1b1-32676f56daa7",
         "name": "analyzeNote.js",
         "type": "JS_LAMBDA",
         "isDirectory": false,
@@ -85,8 +85,8 @@
           ]
         }
       },
-      "bd5b92e4-ace1-438b-9281-910f7d97f27a": {
-        "id": "bd5b92e4-ace1-438b-9281-910f7d97f27a",
+      "0d95e632-5e65-4c3e-82a7-2bebaeb20a00": {
+        "id": "0d95e632-5e65-4c3e-82a7-2bebaeb20a00",
         "parent": null,
         "name": "serverless.yml",
         "type": "YAML_FILE",
@@ -96,8 +96,8 @@
         "filePath": "serverless.yml",
         "code": "service: text-analysis-via-sns-post-processing\n\nframeworkVersion: \">=1.1.0 <2.0.0\"\n\nprovider:\n  name: aws\n  runtime: nodejs8.10\n  region: us-east-1\n  stage: dev\n  iamRoleStatements:\n    - Effect: \"Allow\"\n      Resource: \"*\"\n      Action:\n        - \"sns:*\"\n\nfunctions:\n  addNote:\n    handler: addNote.addNote\n    events:\n      - http:\n          path: notes\n          method: post\n          cors: true\n\n  analyzeNote:\n    handler: analyzeNote.analyzeNote\n    events:\n      - sns: analyzeNote\n"
       },
-      "f4958e08-95e0-4de1-be25-a44183076174": {
-        "id": "f4958e08-95e0-4de1-be25-a44183076174",
+      "5023d22b-7c1b-4bfc-a6e1-1d2741e2fe4e": {
+        "id": "5023d22b-7c1b-4bfc-a6e1-1d2741e2fe4e",
         "parent": null,
         "name": "README.md",
         "type": "MARKDOWN_FILE",
@@ -107,8 +107,8 @@
         "filePath": "README.md",
         "code": "<!--\ntitle: 'AWS Data Processing example in NodeJS'\ndescription: 'This example demonstrates how to setup a simple data processing pipeline.'\nlayout: Doc\nframework: v1\nplatform: AWS\nlanguage: nodeJS\nauthorLink: 'https://github.com/adambrgmn'\nauthorName: 'Adam Bergman'\nauthorAvatar: 'https://avatars1.githubusercontent.com/u/13746650?v=4&s=140'\n-->\n# Data processing\n\nThis example demonstrates how to setup a simple data processing pipeline. The service exposes one HTTP endpoint that allows you to add a text note. This HTTP endpoint returns instantly to provide a good user experience while the actual analysis is deferred. Only messages above a certain sentiment level are actually saved.\n\nInstead of invoking another Lambda function directly it's considered best practice to store the note as a message in a SNS queue. The queue has certain benefits compared to invoking the `analyzeNote` function directly. The queue supports retries in case the analyzeNote function fails as well as back-off to avoid too many concurrent invocations.\n\n## Setup\n\n```bash\nnpm install\n```\n\nIn order to use SNS you need to add your AWS account ID to config.js. There is already a placeholder: `XXXXXXXXXXXX`.\n\nYou can retrieve the your account ID by running this command (you need the AWS SDK installed)\n\n```bash\naws sts get-caller-identity --output text --query Account\n```\n\n# Explanation\n\n- sns topic will be added by default\n\n## Deploy\n\nIn order to deploy the you endpoint simply run\n\n```bash\nserverless deploy\n```\n\nThe expected result should be similar to:\n\n```bash\nServerless: Packaging serviceâ¦\nServerless: Uploading CloudFormation file to S3â¦\nServerless: Uploading service .zip file to S3â¦\nServerless: Updating Stackâ¦\nServerless: Checking Stack update progressâ¦\n............\nServerless: Stack update finishedâ¦\nServerless: Removing old service versionsâ¦\n\nService Information\nservice: text-analysis-via-post-processing\nstage: dev\nregion: us-east-1\napi keys:\n  None\nendpoints:\n  POST - https://5cvfn0wwv7.execute-api.us-east-1.amazonaws.com/dev/notes\nfunctions:\n  text-analysis-via-post-processing-dev-analyzeNote: arn:aws:lambda:us-east-1:377024778620:function:text-analysis-via-post-processing-dev-analyzeNote\n  text-analysis-via-post-processing-dev-addNote: arn:aws:lambda:us-east-1:377024778620:function:text-analysis-via-post-processing-dev-addNote\n```\n\n## Usage\n\nIn order to add a note run\n\n```bash\ncurl -X POST https://XXXXXXXXX.execute-api.us-east-1.amazonaws.com/dev/notes --data '{ \"note\": \"This is such a great Day\" }'\n```\n\nYou should see the following output\n\n```bash\n{\"message\":\"Successfully added the note.\"}%\n```\n\nTo verify that the note has been processed run\n\n```bash\nserverless logs --function analyzeNote\n```\n\nThis command will show you the logged output and looks liked this\n\n```bash\nSTART RequestId: 75a970ba-ab11e6-809d-435833490828 Version: $LATEST\n2015 17:56:32.497 (+01:00)\t75a970ba-ab11e6-809d-435833490828\tPositive note - will be published: This is such a great Day\nEND RequestId: 75a970ba-ab11e6-809d-435833490828\nREPORT RequestId: 75a970ba-ab11e6-809d-435833490828\tDuration: 3.45 ms\tBilled Duration: 100 ms \tMemory Size: 1024 MB\tMax Memory Used: 15 MB\n```\n\nYou can play with the system and see which notes will be published and which won't.\n\n# Scaling\n\nTODO\n"
       },
-      "66d8d97e-73d9-460e-b32c-10c78a42e9ad": {
-        "id": "66d8d97e-73d9-460e-b32c-10c78a42e9ad",
+      "113ea0ba-0aa2-4ffd-974f-b7a8d3efef77": {
+        "id": "113ea0ba-0aa2-4ffd-974f-b7a8d3efef77",
         "parent": null,
         "name": ".gitignore",
         "type": "TEXT_FILE",
@@ -118,8 +118,19 @@
         "filePath": ".gitignore",
         "code": "node_modules\n.serverless\n"
       },
-      "e0772554-5f2d-484b-a0fe-26f3aebab149": {
-        "id": "e0772554-5f2d-484b-a0fe-26f3aebab149",
+      "3723a036-0e2e-4da3-a9c5-9bab3660d4ff": {
+        "id": "3723a036-0e2e-4da3-a9c5-9bab3660d4ff",
+        "parent": "b666bcbf-7e5a-45e1-a1b1-32676f56daa7",
+        "name": "config.js",
+        "type": "JS_FILE",
+        "isDirectory": false,
+        "children": [],
+        "isRemovable": true,
+        "filePath": "text-analysis-via-sns-post-processing/config.js",
+        "code": "'use strict';\n\nmodule.exports = {\n  awsAccountId: 'XXXXXXXXXXXX',\n};\n"
+      },
+      "fa23e0de-3c59-48e7-b4a1-72f6861d683c": {
+        "id": "fa23e0de-3c59-48e7-b4a1-72f6861d683c",
         "parent": null,
         "name": "package.json",
         "type": "JSON_FILE",
@@ -128,25 +139,14 @@
         "isRemovable": true,
         "filePath": "package.json",
         "code": "{\n  \"name\": \"aws-text-analysis-via-sns-post-processing\",\n  \"version\": \"1.0.0\",\n  \"description\": \"Example demonstrates how to setup a simple data processing pipeline\",\n  \"author\": \"\",\n  \"license\": \"MIT\",\n  \"dependencies\": {\n    \"sentiment\": \"^2.1.0\"\n  }\n}\n"
-      },
-      "54647ee9-2a00-4319-9635-26507a1e1ce6": {
-        "id": "54647ee9-2a00-4319-9635-26507a1e1ce6",
-        "parent": "c137ea2b-861f-4013-908d-a905a159e73a",
-        "name": "config.js",
-        "type": "JS_FILE",
-        "isDirectory": false,
-        "children": [],
-        "isRemovable": true,
-        "filePath": "text-analysis-via-sns-post-processing/config.js",
-        "code": "'use strict';\n\nmodule.exports = {\n  awsAccountId: 'XXXXXXXXXXXX',\n};\n"
       }
     },
     "deletedFiles": [],
-    "rootNode": "c137ea2b-861f-4013-908d-a905a159e73a",
+    "rootNode": "b666bcbf-7e5a-45e1-a1b1-32676f56daa7",
     "openFiles": [
-      "7e7bb056-e93d-4ec7-905e-e04bbcff65a8"
+      "1d0c39ce-eb8d-42b3-8449-cd887cb728b0"
     ],
-    "currentFileId": "7e7bb056-e93d-4ec7-905e-e04bbcff65a8",
+    "currentFileId": "1d0c39ce-eb8d-42b3-8449-cd887cb728b0",
     "resources": {
       "apigusEast1addNotenotespost": {
         "type": "API_GATEWAY",
@@ -177,25 +177,6 @@
           "topicDisplayName": "analyzeNote",
           "topicRegion": "us-east-1",
           "subscriptions": []
-        }
-      },
-      "apigusEast1addNotenotesget": {
-        "name": "apigusEast1addNotenotesget",
-        "type": "API_GATEWAY",
-        "config": {
-          "selectedRegion": "us-east-1",
-          "apiMode": 0,
-          "apiName": "addNote",
-          "endpointType": "REGIONAL",
-          "resourceMode": 0,
-          "resourceName": "notes",
-          "resourcePath": "/notes",
-          "restMethod": "GET",
-          "proxyIntegration": true,
-          "enableCORS": true,
-          "stageMode": 0,
-          "stageName": "dev",
-          "mode": 0
         }
       }
     },
@@ -230,7 +211,7 @@
     "projectRegion": "us-east-1",
     "platform": "AWS",
     "platformRegions": {},
-    "lastSave": 1561974859508
+    "lastSave": 1561979211766
   },
   "VCS_STATE": {
     "provider": "GitHub",
