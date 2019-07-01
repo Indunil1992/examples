@@ -34,7 +34,7 @@
         },
         "triggers": [
           {
-            "resourceName": "apigusEast1addNotenotespost",
+            "resourceName": "apigusEast1addNotenotesget",
             "config": {}
           }
         ],
@@ -178,6 +178,25 @@
           "topicRegion": "us-east-1",
           "subscriptions": []
         }
+      },
+      "apigusEast1addNotenotesget": {
+        "name": "apigusEast1addNotenotesget",
+        "type": "API_GATEWAY",
+        "config": {
+          "selectedRegion": "us-east-1",
+          "apiMode": 0,
+          "apiName": "addNote",
+          "endpointType": "EDGE",
+          "resourceMode": 0,
+          "resourceName": "notes",
+          "resourcePath": "/notes",
+          "restMethod": "GET",
+          "proxyIntegration": true,
+          "enableCORS": true,
+          "stageMode": 0,
+          "stageName": "dev",
+          "mode": 0
+        }
       }
     },
     "customTemplate": {
@@ -211,7 +230,7 @@
     "projectRegion": "us-east-1",
     "platform": "AWS",
     "platformRegions": {},
-    "lastSave": 1561974413523
+    "lastSave": 1561974648828
   },
   "VCS_STATE": {
     "provider": "GitHub",
