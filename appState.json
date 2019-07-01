@@ -186,7 +186,7 @@
           "selectedRegion": "us-east-1",
           "apiMode": 0,
           "apiName": "addNote",
-          "endpointType": "EDGE",
+          "endpointType": "REGIONAL",
           "resourceMode": 0,
           "resourceName": "notes",
           "resourcePath": "/notes",
@@ -230,7 +230,7 @@
     "projectRegion": "us-east-1",
     "platform": "AWS",
     "platformRegions": {},
-    "lastSave": 1561974648828
+    "lastSave": 1561974859508
   },
   "VCS_STATE": {
     "provider": "GitHub",
