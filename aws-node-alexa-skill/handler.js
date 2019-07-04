@@ -12,8 +12,10 @@ module.exports.luckyNumber = (event, context, callback) => {
       outputSpeech: {
         type: 'PlainText',
         text: `Your lucky number is ${number}`,
+       
       },
       shouldEndSession: false,
+      
     },
   };
 

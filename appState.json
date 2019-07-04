@@ -22,7 +22,7 @@
         "children": [],
         "isRemovable": true,
         "filePath": "aws-node-alexa-skill/handler.js",
-        "code": "'use strict';\n\n// Returns a random integer between min (inclusive) and max (inclusive)\nconst getRandomInt = (min, max) => Math.floor(Math.random() * ((max - min) + 1)) + min;\n\nmodule.exports.luckyNumber = (event, context, callback) => {\n  const upperLimit = event.request.intent.slots.UpperLimit.value || 100;\n  const number = getRandomInt(0, upperLimit);\n  const response = {\n    version: '1.0',\n    response: {\n      outputSpeech: {\n        type: 'PlainText',\n        text: `Your lucky number is ${number}`,\n      },\n      shouldEndSession: false,\n    },\n  };\n\n  callback(null, response);\n};\n",
+        "code": "'use strict';\n\n// Returns a random integer between min (inclusive) and max (inclusive)\nconst getRandomInt = (min, max) => Math.floor(Math.random() * ((max - min) + 1)) + min;\n\nmodule.exports.luckyNumber = (event, context, callback) => {\n  const upperLimit = event.request.intent.slots.UpperLimit.value || 100;\n  const number = getRandomInt(0, upperLimit);\n  const response = {\n    version: '1.0',\n    response: {\n      outputSpeech: {\n        type: 'PlainText',\n        text: `Your lucky number is ${number}`,\n       \n      },\n      shouldEndSession: false,\n      \n    },\n  };\n\n  callback(null, response);\n};\n",
         "config": {
           "runtime": "nodejs8.10",
           "handler": "luckyNumber",
@@ -30,7 +30,12 @@
           "memory": 128,
           "layers": []
         },
-        "triggers": []
+        "triggers": [
+          {
+            "resourceName": "apigusEast1slackapichatspost",
+            "config": {}
+          }
+        ]
       },
       "e2801a2f-2495-4901-a9e4-69aef71888e3": {
         "id": "e2801a2f-2495-4901-a9e4-69aef71888e3",
@@ -83,8 +88,35 @@
       "46ed4d4d-2f62-4457-8a06-c00d11d9dd56",
       "e2801a2f-2495-4901-a9e4-69aef71888e3"
     ],
-    "currentFileId": "e2801a2f-2495-4901-a9e4-69aef71888e3",
-    "resources": {},
+    "currentFileId": "46ed4d4d-2f62-4457-8a06-c00d11d9dd56",
+    "resources": {
+      "apigusEast1slackapichatspost": {
+        "name": "apigusEast1slackapichatspost",
+        "type": "API_GATEWAY",
+        "config": {
+          "selectedRegion": "us-east-1",
+          "apiMode": 1,
+          "apiName": "slack_api",
+          "apiId": "gzxv3u0uhe",
+          "endpointType": "EDGE",
+          "rootResourceId": "cxna1m1fmi",
+          "existingResources": {
+            "/": "cxna1m1fmi",
+            "/chats": "qlk5ig"
+          },
+          "resourceMode": 1,
+          "resourcePath": "/chats",
+          "resourceName": "chats",
+          "resourceId": "qlk5ig",
+          "restMethod": "POST",
+          "proxyIntegration": false,
+          "enableCORS": false,
+          "stageMode": 0,
+          "stageName": "test",
+          "mode": 1
+        }
+      }
+    },
     "customTemplate": {
       "dialect": "CloudFormation",
       "definitions": {}
@@ -110,7 +142,7 @@
     "projectRegion": "us-east-1",
     "platform": "AWS",
     "platformRegions": {},
-    "lastSave": 1562243708207
+    "lastSave": 1562244055954
   },
   "VCS_STATE": {
     "provider": "GitHub",
