@@ -1,41 +1,29 @@
 <!--
-title: 'AWS Data Processing example in NodeJS'
-description: 'This example demonstrates how to setup a simple data processing pipeline.'
+title: 'AWS Serverless Alexa Skill example in NodeJS'
+description: 'This example demonstrates how to setup your own Alexa skill using AWS Lambdas.'
 layout: Doc
 framework: v1
 platform: AWS
 language: nodeJS
-authorLink: 'https://github.com/adambrgmn'
-authorName: 'Adam Bergman'
-authorAvatar: 'https://avatars1.githubusercontent.com/u/13746650?v=4&s=140'
+authorLink: 'https://github.com/rupakg'
+authorName: 'Rupak Ganguly'
+authorAvatar: 'https://avatars0.githubusercontent.com/u/8188?v=4&s=140'
 -->
-# Data processing
+# Serverless Alexa Skill Example
 
-This example demonstrates how to setup a simple data processing pipeline. The service exposes one HTTP endpoint that allows you to add a text note. This HTTP endpoint returns instantly to provide a good user experience while the actual analysis is deferred. Only messages above a certain sentiment level are actually saved.
+This example demonstrates how to setup your own Alexa skill using AWS Lambdas.
 
-Instead of invoking another Lambda function directly it's considered best practice to store the note as a message in a SNS queue. The queue has certain benefits compared to invoking the `analyzeNote` function directly. The queue supports retries in case the analyzeNote function fails as well as back-off to avoid too many concurrent invocations.
+## Use-cases
+
+- Building custom Alexa skills
+
+## How it works
+
+In the Alexa Developer Portal you can add your own skill. To do so you need to define the available intents and then connect them to a Lambda. You can update and define the Lambda with Serverless.
 
 ## Setup
 
-```bash
-npm install
-```
-
-In order to use SNS you need to add your AWS account ID to config.js. There is already a placeholder: `XXXXXXXXXXXX`.
-
-You can retrieve the your account ID by running this command (you need the AWS SDK installed)
-
-```bash
-aws sts get-caller-identity --output text --query Account
-```
-
-# Explanation
-
-- sns topic will be added by default
-
-## Deploy
-
-In order to deploy the you endpoint simply run
+In order to deploy the endpoint simply run
 
 ```bash
 serverless deploy
@@ -44,59 +32,76 @@ serverless deploy
 The expected result should be similar to:
 
 ```bash
-Serverless: Packaging serviceâ¦
-Serverless: Uploading CloudFormation file to S3â¦
-Serverless: Uploading service .zip file to S3â¦
-Serverless: Updating Stackâ¦
-Serverless: Checking Stack update progressâ¦
-............
-Serverless: Stack update finishedâ¦
-Serverless: Removing old service versionsâ¦
-
+Serverless: Packaging service...
+Serverless: Uploading CloudFormation file to S3...
+Serverless: Uploading service .zip file to S3 (378 B)...
+Serverless: Updating Stack...
+Serverless: Checking Stack update progress...
+.........
+Serverless: Stack update finished...
+Serverless: Removing old service versions...
 Service Information
-service: text-analysis-via-post-processing
+service: aws-node-alexa-skill-2
 stage: dev
 region: us-east-1
 api keys:
   None
 endpoints:
-  POST - https://5cvfn0wwv7.execute-api.us-east-1.amazonaws.com/dev/notes
+  None
 functions:
-  text-analysis-via-post-processing-dev-analyzeNote: arn:aws:lambda:us-east-1:377024778620:function:text-analysis-via-post-processing-dev-analyzeNote
-  text-analysis-via-post-processing-dev-addNote: arn:aws:lambda:us-east-1:377024778620:function:text-analysis-via-post-processing-dev-addNote
+  aws-node-alexa-skill-2-dev-luckyNumber: arn:aws:lambda:us-east-1:377024778620:function:aws-node-alexa-skill-2-dev-luckyNumber
+
 ```
 
-## Usage
+Next we need to setup an Alexa skill. Once you've signed up for the Amazon Developer Platform visit `https://developer.amazon.com/edw/home.html`. There you should see the following screen:
 
-In order to add a note run
+![Welcome](https://cloud.githubusercontent.com/assets/223045/21183285/8403b37c-c211e6-89c0-d36582010af8.png)
 
-```bash
-curl -X POST https://XXXXXXXXX.execute-api.us-east-1.amazonaws.com/dev/notes --data '{ "note": "This is such a great Day" }'
+Next click on `Add a new Skill`:
+
+![Add Skill](https://cloud.githubusercontent.com/assets/223045/21183286/840512c211e6-84945b6b45e83b.png)
+
+Go through the steps and fill in all the required fields e.g. Intent Schema and Sample Utterances:
+
+Intent Schema
+```
+{
+  "intents": [
+    {
+      "intent": "GetLuckyNumbers",
+      "slots": [
+        {
+          "name": "UpperLimit",
+          "type": "AMAZON.NUMBER"
+        }
+      ]
+    }
+  ]
+}
 ```
 
-You should see the following output
-
-```bash
-{"message":"Successfully added the note."}%
+Sample Utterances
+```
+GetLuckyNumbers what are my lucky numbers
+GetLuckyNumbers tell me my lucky numbers
+GetLuckyNumbers what are my lucky numbers lower than {UpperLimit}
+GetLuckyNumbers tell me my lucky numbers lower than {UpperLimit}
 ```
 
-To verify that the note has been processed run
+![Skill Information](https://cloud.githubusercontent.com/assets/223045/21183279/83eec4c211e6-841b-d8925f0804a5.png)
+![Interaction Model](https://cloud.githubusercontent.com/assets/223045/21183280/83ef3dc211e6-87a5-bb8dcbb903f8.png)
 
-```bash
-serverless logs --function analyzeNote
-```
+Fill in the Lambda ARN which was printed or run `serverless info` to retrieve the ARN again.
 
-This command will show you the logged output and looks liked this
+![Configuration](https://cloud.githubusercontent.com/assets/223045/21183281/83f170c211e6-89b7-2f6d96ac559c.png)
 
-```bash
-START RequestId: 75a970ba-ab11e6-809d-435833490828 Version: $LATEST
-2015 17:56:32.497 (+01:00)	75a970ba-ab11e6-809d-435833490828	Positive note - will be published: This is such a great Day
-END RequestId: 75a970ba-ab11e6-809d-435833490828
-REPORT RequestId: 75a970ba-ab11e6-809d-435833490828	Duration: 3.45 ms	Billed Duration: 100 ms 	Memory Size: 1024 MB	Max Memory Used: 15 MB
-```
+Next up visit the test page, fill in the utterance and click on `Ask LuckyNumbers`.
 
-You can play with the system and see which notes will be published and which won't.
+![Test](https://cloud.githubusercontent.com/assets/223045/21183283/83f1f6c211e6-858d-41b1a3154e91.png)
+![Test](https://cloud.githubusercontent.com/assets/223045/21183282/83f1f6c211e6-974e-b7c051ffb6eb.png)
+![Test](https://cloud.githubusercontent.com/assets/223045/21183284/83f708ac-c211e6-819489e8f3e494.png)
+![Test](https://cloud.githubusercontent.com/assets/223045/21185805/78c1dfc211e6-9cf9-ce44edc30cdd.gif)
 
-# Scaling
+You should have received a response containing the text `Your lucky number is` followed by your lucky number :)
 
-TODO
+Check out this [Amazon guide](https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/overviews/steps-to-build-a-custom-skill#your-skill-is-published-now-what) to learn more about how to submit your skill for publication.

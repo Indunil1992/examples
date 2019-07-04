@@ -1,28 +1,13 @@
-service: text-analysis-via-sns-post-processing
+service: aws-node-alexa-skill
 
-frameworkVersion: ">=1.1.0 <2.0.0"
+frameworkVersion: ">=1.4.0 <2.0.0"
 
 provider:
   name: aws
   runtime: nodejs8.10
-  region: us-east-1
-  stage: dev
-  iamRoleStatements:
-    - Effect: "Allow"
-      Resource: "*"
-      Action:
-        - "sns:*"
 
 functions:
-  addNote:
-    handler: addNote.addNote
+  luckyNumber:
+    handler: handler.luckyNumber
     events:
-      - http:
-          path: notes
-          method: post
-          cors: true
-
-  analyzeNote:
-    handler: analyzeNote.analyzeNote
-    events:
-      - sns: analyzeNote
+      - alexaSkill

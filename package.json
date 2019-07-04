@@ -1,10 +1,7 @@
 {
-  "name": "aws-text-analysis-via-sns-post-processing",
+  "name": "aws-alexa-skill",
   "version": "1.0.0",
-  "description": "Example demonstrates how to setup a simple data processing pipeline",
+  "description": "This example demonstrates how to use an AWS Lambdas for your custom Alexa skill.",
   "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "sentiment": "^2.1.0"
-  }
+  "license": "MIT"
 }
