@@ -1,65 +1,49 @@
 {
   "EDITOR_STATE": {
     "allProjectFiles": {
-      "cc7d3058-9bfd-4d1f-b188-9061e08fd656": {
-        "id": "cc7d3058-9bfd-4d1f-b188-9061e08fd656",
+      "aac0071a-5289-4479-926f-f8629841e68e": {
+        "id": "aac0071a-5289-4479-926f-f8629841e68e",
         "parent": null,
-        "name": "graphql-api",
+        "name": "aws-lambda-and-heroku-postgres",
         "type": "DIRECTORY",
         "isDirectory": true,
         "children": [
-          "c685cb15-6d7d-44c8-82ab-8544bfcaef59"
+          "9bd1ca27-3604-4d24-8f21-c38155f36a0c",
+          "be010754-39b1-4a98-8e44-55b502ea51e1"
         ],
         "isRemovable": false,
-        "filePath": "graphql-api"
+        "filePath": "aws-lambda-and-heroku-postgres"
       },
-      "c685cb15-6d7d-44c8-82ab-8544bfcaef59": {
-        "id": "c685cb15-6d7d-44c8-82ab-8544bfcaef59",
-        "parent": "cc7d3058-9bfd-4d1f-b188-9061e08fd656",
+      "9bd1ca27-3604-4d24-8f21-c38155f36a0c": {
+        "id": "9bd1ca27-3604-4d24-8f21-c38155f36a0c",
+        "parent": "aac0071a-5289-4479-926f-f8629841e68e",
         "name": "handler.js",
         "type": "JS_LAMBDA",
         "isDirectory": false,
         "children": [],
         "isRemovable": true,
-        "filePath": "graphql-api/handler.js",
-        "code": "const {\n  graphql,\n  GraphQLSchema,\n  GraphQLObjectType,\n  GraphQLString,\n  GraphQLNonNull,\n} = require('graphql');\n\nconst AWS = require('aws-sdk');\n\nconst dynamoDb = new AWS.DynamoDB.DocumentClient();\n\nconst promisify = foo => new Promise((resolve, reject) => {\n  foo((error, result) => {\n    if (error) {\n      reject(error);\n    } else {\n      resolve(result);\n    }\n  });\n});\n\nconst getGreeting = firstName => promisify(callback =>\n  dynamoDb.get({\n    TableName: 'graphql-api-dev',\n    Key: {\n      'firstName': indunil\n    }\n  }, callback))\n  .then((result) => {\n    if (!result.Item) {\n      return firstName;\n    }\n    return result.Item.nickname;\n  })\n  .then(name => `Hello, ${name}.`);\n\nconst changeNickname = (firstName, nickname) => promisify(callback =>\n  dynamoDb.update({\n    TableName: 'graphql-api-dev',\n    Key: {\n      'firstName': indunil\n    },\n    ExpressionAttributeValues: {\n      ':nickname': sachithra\n    },\n    UpdateExpression: 'set '\n  }, callback))\n  .then(() => nickname);\n\nconst schema = new GraphQLSchema({\n  query: new GraphQLObjectType({\n    name: 'RootQueryType', // an arbitrary name\n    fields: {\n      // the query has a field called 'greeting'\n      greeting: {\n        // we need to know the user's name to greet them\n        args: { firstName: { name: 'firstName', type: new GraphQLNonNull(GraphQLString) } },\n        // the greeting message is a string\n        type: GraphQLString,\n        // resolve to a greeting message\n        resolve: (parent, args) => getGreeting(args.firstName),\n      },\n    },\n  }),\n  mutation: new GraphQLObjectType({\n    name: 'RootMutationType', // an arbitrary name\n    fields: {\n      changeNickname: {\n        args: {\n          firstName: { name: 'firstName', type: new GraphQLNonNull(GraphQLString) },\n          nickname: { name: 'nickname', type: new GraphQLNonNull(GraphQLString) },\n        },\n        type: GraphQLString,\n        resolve: (parent, args) => changeNickname(args.firstName, args.nickname),\n      },\n    },\n  }),\n});\n\n// We want to make a GET request with ?query=<graphql query>\n// The event properties are specific to AWS. Other providers will differ.\nmodule.exports.query = (event, context, callback) =>\n  graphql(schema, event.queryStringParameters.query)\n    .then(\n    result => callback(null, { statusCode: 200, body: JSON.stringify(result) }),\n    err => callback(err)\n    );\n",
+        "filePath": "aws-lambda-and-heroku-postgres/handler.js",
+        "code": "// handler.js\n'use strict';\n\nconst express = require('express');\nconst serverless = require('serverless-http');\nconst pg = require('pg');\nconst axios = require('axios');\nconst parsePgConnStr = require('pg-connection-string').parse;\n\n// Replace with your token or API key and your Heroku Postgres resource name\nconst herokuApiKey = '';\nconst herokuPostgresId = '';\nconst herokuClient = axios.create({\n    baseURL: 'https://api.heroku.com/',\n    headers: {\n        'Authorization': `Bearer ${herokuApiKey}`,\n        'Accept': 'application/vnd.heroku+json; version=3',\n    },\n});\n\nlet pgConfig;\nlet pgPool;\n\nconst app = express();\n\nconst createConn = async () => {\n    console.log('Creating PG connection.');\n\n    const credsResponse = await herokuClient.get(`addons/${herokuPostgresId}/config`);\n    const pgConnStr = credsResponse.data[0]['value'];\n\n    pgConfig = {\n        ...parsePgConnStr(pgConnStr), ...{\n            max: 1,\n            ssl: true,\n        },\n    };\n\n    pgPool = new pg.Pool(pgConfig);\n};\n\nconst performQuery = async () => {\n    const client = await pgPool.connect();\n    const result = await client.query('SELECT now()');\n    client.release();\n    return result;\n};\n\napp.get('/hello', async function (req, res) {\n    if (!pgPool) {\n        // Cold start. Get Heroku Postgres creds and create pool.\n        await createConn();\n    } else {\n        console.log('Using existing PG connection.');\n    }\n\n    try {\n        const result = await performQuery();\n\n        res.json({\n            result: `According to PostgreSQL, the time is: ${result.rows[0].now}`,\n            pgConfigUsed: pgConfig,\n        });\n        return;\n    } catch (e) {\n        res.json({\n            error: e.message,\n        });\n        return;\n    }\n\n});\n\napp.post('/onrelease', async function (req, res) {\n    // Get Heroku Postgres creds and replace pool with new one.\n    await createConn();\n\n    // Response with 2xx response so Heroku knows webhook was successful.\n    // Response body doesn't matter.\n    res.status(204).send();\n});\n\nmodule.exports = {\n    app,\n    hello: serverless(app),\n};\n",
         "config": {
-          "runtime": "nodejs10.x",
-          "handler": "query",
+          "runtime": "nodejs8.10",
+          "handler": "hello",
           "timeout": 60,
           "memory": 128,
           "layers": []
         },
         "triggers": [
           {
-            "resourceName": "apigusEast1queryqueryget",
+            "resourceName": "apigusEast1hellohelloget",
+            "config": {}
+          },
+          {
+            "resourceName": "apigusEast1helloonreleasepost",
             "config": {}
           }
-        ],
-        "customSecurityPolicy": {
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Action": [
-                "dynamodb:GetItem",
-                "dynamodb:UpdateItem"
-              ],
-              "Resource": "arn:aws:dynamodb:us-east-1:*:table/graphql-api-dev"
-            }
-          ]
-        },
-        "testCases": {
-          "6e6472e0-fea8-4930-9b94-6c85a46804dd": {
-            "id": "6e6472e0-fea8-4930-9b94-6c85a46804dd",
-            "name": "Test event",
-            "functionId": "c685cb15-6d7d-44c8-82ab-8544bfcaef59",
-            "event": "{\r\n    \"query\": \"value1\"\r\n   \r\n}",
-            "eventTemplate": "hello-world"
-          }
-        }
+        ]
       },
-      "a8fbe21d-049f-4726-9268-6d3e392132d5": {
-        "id": "a8fbe21d-049f-4726-9268-6d3e392132d5",
+      "ce60195f-0beb-456a-9e4a-c1c7ca377ed3": {
+        "id": "ce60195f-0beb-456a-9e4a-c1c7ca377ed3",
         "parent": null,
         "name": "serverless.yml",
         "type": "YAML_FILE",
@@ -67,32 +51,21 @@
         "children": [],
         "isRemovable": true,
         "filePath": "serverless.yml",
-        "code": "service: graphql-api\n\nprovider:\n  name: aws\n  runtime: nodejs10.x\n  environment:\n    DYNAMODB_TABLE: ${self:service}-${self:provider.stage}\n  iamRoleStatements:\n    - Effect: Allow\n      Action:\n        - dynamodb:GetItem\n        - dynamodb:UpdateItem\n      Resource: \"arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}\"\n\nfunctions:\n  query:\n    handler: handler.query\n    events:\n      - http:\n          path: query\n          method: get\n\nresources:\n  Resources:\n    NicknamesTable:\n      Type: 'AWS::DynamoDB::Table'\n      Properties:\n        AttributeDefinitions:\n          - AttributeName: firstName\n            AttributeType: S\n        KeySchema:\n          - AttributeName: firstName\n            KeyType: HASH\n        ProvisionedThroughput:\n          ReadCapacityUnits: 1\n          WriteCapacityUnits: 1\n        TableName: ${self:provider.environment.DYNAMODB_TABLE}\n"
+        "code": "service: aws-lambda-and-heroku-postgres # NOTE: update this with your service name\n\nprovider:\n  name: aws\n  runtime: nodejs8.10\n  stage: dev\n\nfunctions:\n  hello:\n    handler: handler.hello\n    events:\n      - http: GET hello\n      - http: POST onrelease"
       },
-      "88f8d877-8091-4d4c-a0fc-0a93f5fff74f": {
-        "id": "88f8d877-8091-4d4c-a0fc-0a93f5fff74f",
+      "285a08a4-8505-43a0-8972-def5dfd5bb9d": {
+        "id": "285a08a4-8505-43a0-8972-def5dfd5bb9d",
         "parent": null,
-        "name": "package.json",
-        "type": "JSON_FILE",
+        "name": "README.md",
+        "type": "MARKDOWN_FILE",
         "isDirectory": false,
         "children": [],
         "isRemovable": true,
-        "filePath": "package.json",
-        "code": "{\n  \"name\": \"aws-node-graphql-api-with-dynamodb\",\n  \"version\": \"1.0.0\",\n  \"description\": \"A single-module GraphQL endpoint with query and mutation functionality.\",\n  \"main\": \"handler.js\",\n  \"dependencies\": {\n    \"aws-sdk\": \"^2.136.0\",\n    \"eslint-plugin-react\": \"^7.4.0\",\n    \"graphql\": \"^0.11.7\"\n  },\n  \"devDependencies\": {},\n  \"scripts\": {\n    \"test\": \"echo \\\"Error: no test specified\\\" && exit 1\"\n  },\n  \"author\": \"\",\n  \"license\": \"ISC\"\n}\n"
+        "filePath": "README.md",
+        "code": "<!--\ntitle: 'Node.js AWS Lambda connecting to Heroku Postgres'\ndescription: 'Shows how to connect AWS Lambda to Heroku Postgres. Uses an api:release Heroku webhook and the Heroku API to handle automatic Heroku Postgres credential rotation.'\nlayout: Doc\nframework: v1\nplatform: AWS\nlanguage: nodeJS\nauthorLink: 'https://github.com/welkie'\nauthorName: 'Matt Welke'\nauthorAvatar: 'https://avatars0.githubusercontent.com/u/7719209'\n-->\n# aws-node-heroku-postgres\n\nAn example app, created in this [blog post](https://mattwelke.com/2019/01/06/free-tier-managed-sql-with-aws-lambda-and-heroku-postgres.html), showing how to connect AWS Lambda to Heroku Postgres. Uses an `api:release` Heroku webhook and the Heroku API to handle automatic Heroku Postgres credential rotation.\n"
       },
-      "3f92d3c9-7b19-4713-b7f4-1575b677ae50": {
-        "id": "3f92d3c9-7b19-4713-b7f4-1575b677ae50",
-        "parent": null,
-        "name": "package-lock.json",
-        "type": "JSON_FILE",
-        "isDirectory": false,
-        "children": [],
-        "isRemovable": true,
-        "filePath": "package-lock.json",
-        "code": "{\n  \"name\": \"aws-node-graphql-api-with-dynamodb\",\n  \"version\": \"1.0.0\",\n  \"lockfileVersion\": 1,\n  \"requires\": true,\n  \"dependencies\": {\n    \"array-includes\": {\n      \"version\": \"3.0.3\",\n      \"resolved\": \"https://registry.npmjs.org/array-includes/-/array-includes-3.0.3.tgz\",\n      \"integrity\": \"sha1-GEtI9i2S10UrsxsyMWXH+L0CJm0=\",\n      \"requires\": {\n        \"define-properties\": \"^1.1.2\",\n        \"es-abstract\": \"^1.7.0\"\n      }\n    },\n    \"aws-sdk\": {\n      \"version\": \"2.430.0\",\n      \"resolved\": \"https://registry.npmjs.org/aws-sdk/-/aws-sdk-2.430.0.tgz\",\n      \"integrity\": \"sha512-xJC1Sd6pjiIUg0W6v189QFWaY/jo+dVdQEJpplzqqBWmdUhZrBVmuWBVjC/wf5r6+Tj2KCc0G1fvjZqVutYnMw==\",\n      \"requires\": {\n        \"buffer\": \"4.9.1\",\n        \"events\": \"1.1.1\",\n        \"ieee754\": \"1.1.8\",\n        \"jmespath\": \"0.15.0\",\n        \"querystring\": \"0.2.0\",\n        \"sax\": \"1.2.1\",\n        \"url\": \"0.10.3\",\n        \"uuid\": \"3.3.2\",\n        \"xml2js\": \"0.4.19\"\n      }\n    },\n    \"base64-js\": {\n      \"version\": \"1.3.0\",\n      \"resolved\": \"https://registry.npmjs.org/base64-js/-/base64-js-1.3.0.tgz\",\n      \"integrity\": \"sha512-ccav/yGvoa80BQDljCxsmmQ3Xvx60/UpBIij5QN21W3wBi/hhIC9OoO+KLpu9IJTS9j4DRVJ3aDDF9cMSoa2lw==\"\n    },\n    \"buffer\": {\n      \"version\": \"4.9.1\",\n      \"resolved\": \"https://registry.npmjs.org/buffer/-/buffer-4.9.1.tgz\",\n      \"integrity\": \"sha1-bRu2AbB6TvztlwlBMgkwJ8lbwpg=\",\n      \"requires\": {\n        \"base64-js\": \"^1.0.2\",\n        \"ieee754\": \"^1.1.4\",\n        \"isarray\": \"^1.0.0\"\n      }\n    },\n    \"define-properties\": {\n      \"version\": \"1.1.3\",\n      \"resolved\": \"https://registry.npmjs.org/define-properties/-/define-properties-1.1.3.tgz\",\n      \"integrity\": \"sha512-3MqfYKj2lLzdMSf8ZIZE/V+Zuy+BgD6f164e8K2w7dgnpKArBDerGYpM46IYYcjnkdPNMjPk9A6VFB8+3SKlXQ==\",\n      \"requires\": {\n        \"object-keys\": \"^1.0.12\"\n      }\n    },\n    \"doctrine\": {\n      \"version\": \"2.1.0\",\n      \"resolved\": \"https://registry.npmjs.org/doctrine/-/doctrine-2.1.0.tgz\",\n      \"integrity\": \"sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw==\",\n      \"requires\": {\n        \"esutils\": \"^2.0.2\"\n      }\n    },\n    \"es-abstract\": {\n      \"version\": \"1.13.0\",\n      \"resolved\": \"https://registry.npmjs.org/es-abstract/-/es-abstract-1.13.0.tgz\",\n      \"integrity\": \"sha512-vDZfg/ykNxQVwup/8E1BZhVzFfBxs9NqMzGcvIJrqg5k2/5Za2bWo40dK2J1pgLngZ7c+Shh8lwYtLGyrwPutg==\",\n      \"requires\": {\n        \"es-to-primitive\": \"^1.2.0\",\n        \"function-bind\": \"^1.1.1\",\n        \"has\": \"^1.0.3\",\n        \"is-callable\": \"^1.1.4\",\n        \"is-regex\": \"^1.0.4\",\n        \"object-keys\": \"^1.0.12\"\n      }\n    },\n    \"es-to-primitive\": {\n      \"version\": \"1.2.0\",\n      \"resolved\": \"https://registry.npmjs.org/es-to-primitive/-/es-to-primitive-1.2.0.tgz\",\n      \"integrity\": \"sha512-qZryBOJjV//LaxLTV6UC//WewneB3LcXOL9NP++ozKVXsIIIpm/2c13UDiD9Jp2eThsecw9m3jPqDwTyobcdbg==\",\n      \"requires\": {\n        \"is-callable\": \"^1.1.4\",\n        \"is-date-object\": \"^1.0.1\",\n        \"is-symbol\": \"^1.0.2\"\n      }\n    },\n    \"eslint-plugin-react\": {\n      \"version\": \"7.12.4\",\n      \"resolved\": \"https://registry.npmjs.org/eslint-plugin-react/-/eslint-plugin-react-7.12.4.tgz\",\n      \"integrity\": \"sha512-1puHJkXJY+oS1t467MjbqjvX53uQ05HXwjqDgdbGBqf5j9eeydI54G3KwiJmWciQ0HTBacIKw2jgwSBSH3yfgQ==\",\n      \"requires\": {\n        \"array-includes\": \"^3.0.3\",\n        \"doctrine\": \"^2.1.0\",\n        \"has\": \"^1.0.3\",\n        \"jsx-ast-utils\": \"^2.0.1\",\n        \"object.fromentries\": \"^2.0.0\",\n        \"prop-types\": \"^15.6.2\",\n        \"resolve\": \"^1.9.0\"\n      }\n    },\n    \"esutils\": {\n      \"version\": \"2.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/esutils/-/esutils-2.0.2.tgz\",\n      \"integrity\": \"sha1-Cr9PHKpbyx96nYrMbepPqqBLrJs=\"\n    },\n    \"events\": {\n      \"version\": \"1.1.1\",\n      \"resolved\": \"https://registry.npmjs.org/events/-/events-1.1.1.tgz\",\n      \"integrity\": \"sha1-nr23Y1rQmccNzEwqH1AEKI6L2SQ=\"\n    },\n    \"function-bind\": {\n      \"version\": \"1.1.1\",\n      \"resolved\": \"https://registry.npmjs.org/function-bind/-/function-bind-1.1.1.tgz\",\n      \"integrity\": \"sha512-yIovAzMX49sF8Yl58fSCWJ5svSLuaibPxXQJFLmBObTuCr0Mf1KiPopGM9NiFjiYBCbfaa2Fh6breQ6ANVTI0A==\"\n    },\n    \"graphql\": {\n      \"version\": \"0.11.7\",\n      \"resolved\": \"https://registry.npmjs.org/graphql/-/graphql-0.11.7.tgz\",\n      \"integrity\": \"sha512-x7uDjyz8Jx+QPbpCFCMQ8lltnQa4p4vSYHx6ADe8rVYRTdsyhCJbvSty5DAsLVmU6cGakl+r8HQYolKHxk/tiw==\",\n      \"requires\": {\n        \"iterall\": \"1.1.3\"\n      }\n    },\n    \"has\": {\n      \"version\": \"1.0.3\",\n      \"resolved\": \"https://registry.npmjs.org/has/-/has-1.0.3.tgz\",\n      \"integrity\": \"sha512-f2dvO0VU6Oej7RkWJGrehjbzMAjFp5/VKPp5tTpWIV4JHHZK1/BxbFRtf/siA2SWTe09caDmVtYYzWEIbBS4zw==\",\n      \"requires\": {\n        \"function-bind\": \"^1.1.1\"\n      }\n    },\n    \"has-symbols\": {\n      \"version\": \"1.0.0\",\n      \"resolved\": \"https://registry.npmjs.org/has-symbols/-/has-symbols-1.0.0.tgz\",\n      \"integrity\": \"sha1-uhqPGvKg/DllD1yFA2dwQSIGO0Q=\"\n    },\n    \"ieee754\": {\n      \"version\": \"1.1.8\",\n      \"resolved\": \"https://registry.npmjs.org/ieee754/-/ieee754-1.1.8.tgz\",\n      \"integrity\": \"sha1-vjPUCsEO8ZJnAfbwii2G+/0a0+Q=\"\n    },\n    \"is-callable\": {\n      \"version\": \"1.1.4\",\n      \"resolved\": \"https://registry.npmjs.org/is-callable/-/is-callable-1.1.4.tgz\",\n      \"integrity\": \"sha512-r5p9sxJjYnArLjObpjA4xu5EKI3CuKHkJXMhT7kwbpUyIFD1n5PMAsoPvWnvtZiNz7LjkYDRZhd7FlI0eMijEA==\"\n    },\n    \"is-date-object\": {\n      \"version\": \"1.0.1\",\n      \"resolved\": \"https://registry.npmjs.org/is-date-object/-/is-date-object-1.0.1.tgz\",\n      \"integrity\": \"sha1-mqIOtq7rv/d/vTPnTKAbM1gdOhY=\"\n    },\n    \"is-regex\": {\n      \"version\": \"1.0.4\",\n      \"resolved\": \"https://registry.npmjs.org/is-regex/-/is-regex-1.0.4.tgz\",\n      \"integrity\": \"sha1-VRdIm1RwkbCTDglWVM7SXul+lJE=\",\n      \"requires\": {\n        \"has\": \"^1.0.1\"\n      }\n    },\n    \"is-symbol\": {\n      \"version\": \"1.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/is-symbol/-/is-symbol-1.0.2.tgz\",\n      \"integrity\": \"sha512-HS8bZ9ox60yCJLH9snBpIwv9pYUAkcuLhSA1oero1UB5y9aiQpRA8y2ex945AOtCZL1lJDeIk3G5LthswI46Lw==\",\n      \"requires\": {\n        \"has-symbols\": \"^1.0.0\"\n      }\n    },\n    \"isarray\": {\n      \"version\": \"1.0.0\",\n      \"resolved\": \"https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz\",\n      \"integrity\": \"sha1-u5NdSFgsuhaMBoNJV6VKPgcSTxE=\"\n    },\n    \"iterall\": {\n      \"version\": \"1.1.3\",\n      \"resolved\": \"https://registry.npmjs.org/iterall/-/iterall-1.1.3.tgz\",\n      \"integrity\": \"sha512-Cu/kb+4HiNSejAPhSaN1VukdNTTi/r4/e+yykqjlG/IW+1gZH5b4+Bq3whDX4tvbYugta3r8KTMUiqT3fIGxuQ==\"\n    },\n    \"jmespath\": {\n      \"version\": \"0.15.0\",\n      \"resolved\": \"https://registry.npmjs.org/jmespath/-/jmespath-0.15.0.tgz\",\n      \"integrity\": \"sha1-o/Iiqarp+Wb10nx5ZRDigJF2Qhc=\"\n    },\n    \"js-tokens\": {\n      \"version\": \"4.0.0\",\n      \"resolved\": \"https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz\",\n      \"integrity\": \"sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==\"\n    },\n    \"jsx-ast-utils\": {\n      \"version\": \"2.0.1\",\n      \"resolved\": \"https://registry.npmjs.org/jsx-ast-utils/-/jsx-ast-utils-2.0.1.tgz\",\n      \"integrity\": \"sha1-6AGxs5mF4g//yHtA43SAgOLcrH8=\",\n      \"requires\": {\n        \"array-includes\": \"^3.0.3\"\n      }\n    },\n    \"loose-envify\": {\n      \"version\": \"1.4.0\",\n      \"resolved\": \"https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz\",\n      \"integrity\": \"sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==\",\n      \"requires\": {\n        \"js-tokens\": \"^3.0.0 || ^4.0.0\"\n      }\n    },\n    \"object-assign\": {\n      \"version\": \"4.1.1\",\n      \"resolved\": \"https://registry.npmjs.org/object-assign/-/object-assign-4.1.1.tgz\",\n      \"integrity\": \"sha1-IQmtx5ZYh8/AXLvUQsrIv7s2CGM=\"\n    },\n    \"object-keys\": {\n      \"version\": \"1.1.0\",\n      \"resolved\": \"https://registry.npmjs.org/object-keys/-/object-keys-1.1.0.tgz\",\n      \"integrity\": \"sha512-6OO5X1+2tYkNyNEx6TsCxEqFfRWaqx6EtMiSbGrw8Ob8v9Ne+Hl8rBAgLBZn5wjEz3s/s6U1WXFUFOcxxAwUpg==\"\n    },\n    \"object.fromentries\": {\n      \"version\": \"2.0.0\",\n      \"resolved\": \"https://registry.npmjs.org/object.fromentries/-/object.fromentries-2.0.0.tgz\",\n      \"integrity\": \"sha512-9iLiI6H083uiqUuvzyY6qrlmc/Gz8hLQFOcb/Ri/0xXFkSNS3ctV+CbE6yM2+AnkYfOB3dGjdzC0wrMLIhQICA==\",\n      \"requires\": {\n        \"define-properties\": \"^1.1.2\",\n        \"es-abstract\": \"^1.11.0\",\n        \"function-bind\": \"^1.1.1\",\n        \"has\": \"^1.0.1\"\n      }\n    },\n    \"path-parse\": {\n      \"version\": \"1.0.6\",\n      \"resolved\": \"https://registry.npmjs.org/path-parse/-/path-parse-1.0.6.tgz\",\n      \"integrity\": \"sha512-GSmOT2EbHrINBf9SR7CDELwlJ8AENk3Qn7OikK4nFYAu3Ote2+JYNVvkpAEQm3/TLNEJFD/xZJjzyxg3KBWOzw==\"\n    },\n    \"prop-types\": {\n      \"version\": \"15.7.2\",\n      \"resolved\": \"https://registry.npmjs.org/prop-types/-/prop-types-15.7.2.tgz\",\n      \"integrity\": \"sha512-8QQikdH7//R2vurIJSutZ1smHYTcLpRWEOlHnzcWHmBYrOGUysKwSsrC89BCiFj3CbrfJ/nXFdJepOVrY1GCHQ==\",\n      \"requires\": {\n        \"loose-envify\": \"^1.4.0\",\n        \"object-assign\": \"^4.1.1\",\n        \"react-is\": \"^16.8.1\"\n      }\n    },\n    \"punycode\": {\n      \"version\": \"1.3.2\",\n      \"resolved\": \"https://registry.npmjs.org/punycode/-/punycode-1.3.2.tgz\",\n      \"integrity\": \"sha1-llOgNvt8HuQjQvIyXM7v6jkmxI0=\"\n    },\n    \"querystring\": {\n      \"version\": \"0.2.0\",\n      \"resolved\": \"https://registry.npmjs.org/querystring/-/querystring-0.2.0.tgz\",\n      \"integrity\": \"sha1-sgmEkgO7Jd+CDadW50cAWHhSFiA=\"\n    },\n    \"react-is\": {\n      \"version\": \"16.8.6\",\n      \"resolved\": \"https://registry.npmjs.org/react-is/-/react-is-16.8.6.tgz\",\n      \"integrity\": \"sha512-aUk3bHfZ2bRSVFFbbeVS4i+lNPZr3/WM5jT2J5omUVV1zzcs1nAaf3l51ctA5FFvCRbhrH0bdAsRRQddFJZPtA==\"\n    },\n    \"resolve\": {\n      \"version\": \"1.10.0\",\n      \"resolved\": \"https://registry.npmjs.org/resolve/-/resolve-1.10.0.tgz\",\n      \"integrity\": \"sha512-3sUr9aq5OfSg2S9pNtPA9hL1FVEAjvfOC4leW0SNf/mpnaakz2a9femSd6LqAww2RaFctwyf1lCqnTHuF1rxDg==\",\n      \"requires\": {\n        \"path-parse\": \"^1.0.6\"\n      }\n    },\n    \"sax\": {\n      \"version\": \"1.2.1\",\n      \"resolved\": \"https://registry.npmjs.org/sax/-/sax-1.2.1.tgz\",\n      \"integrity\": \"sha1-e45lYZCyKOgaZq6nSEgNgozS03o=\"\n    },\n    \"url\": {\n      \"version\": \"0.10.3\",\n      \"resolved\": \"https://registry.npmjs.org/url/-/url-0.10.3.tgz\",\n      \"integrity\": \"sha1-Ah5NnHcF8hu/N9A861h2dAJ3TGQ=\",\n      \"requires\": {\n        \"punycode\": \"1.3.2\",\n        \"querystring\": \"0.2.0\"\n      }\n    },\n    \"uuid\": {\n      \"version\": \"3.3.2\",\n      \"resolved\": \"https://registry.npmjs.org/uuid/-/uuid-3.3.2.tgz\",\n      \"integrity\": \"sha512-yXJmeNaw3DnnKAOKJE51sL/ZaYfWJRl1pK9dr19YFCu0ObS231AB1/LbqTKRAQ5kw8A90rA6fr4riOUpTZvQZA==\"\n    },\n    \"xml2js\": {\n      \"version\": \"0.4.19\",\n      \"resolved\": \"https://registry.npmjs.org/xml2js/-/xml2js-0.4.19.tgz\",\n      \"integrity\": \"sha512-esZnJZJOiJR9wWKMyuvSE1y6Dq5LCuJanqhxslH2bxM6duahNZ+HMpCLhBQGZkbX6xRf8x1Y2eJlgt2q3qo49Q==\",\n      \"requires\": {\n        \"sax\": \">=0.6.0\",\n        \"xmlbuilder\": \"~9.0.1\"\n      }\n    },\n    \"xmlbuilder\": {\n      \"version\": \"9.0.7\",\n      \"resolved\": \"https://registry.npmjs.org/xmlbuilder/-/xmlbuilder-9.0.7.tgz\",\n      \"integrity\": \"sha1-Ey7mPS7FVlxVfiD0wi35rKaGsQ0=\"\n    }\n  }\n}\n"
-      },
-      "733ad841-a2a8-4d70-b7a2-05070f63d8df": {
-        "id": "733ad841-a2a8-4d70-b7a2-05070f63d8df",
+      "f1808e92-2251-483d-a5fc-13f02fa62670": {
+        "id": "f1808e92-2251-483d-a5fc-13f02fa62670",
         "parent": null,
         "name": ".gitignore",
         "type": "TEXT_FILE",
@@ -102,118 +75,90 @@
         "filePath": ".gitignore",
         "code": "# package directories\nnode_modules\njspm_packages\n\n# Serverless directories\n.serverless"
       },
-      "81691b1c-e0fe-4295-8a97-2d7a9edadb28": {
-        "id": "81691b1c-e0fe-4295-8a97-2d7a9edadb28",
-        "parent": null,
-        "name": "README.md",
-        "type": "MARKDOWN_FILE",
+      "be010754-39b1-4a98-8e44-55b502ea51e1": {
+        "id": "be010754-39b1-4a98-8e44-55b502ea51e1",
+        "parent": "aac0071a-5289-4479-926f-f8629841e68e",
+        "name": "index.js",
+        "type": "JS_FILE",
         "isDirectory": false,
         "children": [],
         "isRemovable": true,
-        "filePath": "README.md",
-        "code": "<!--\ntitle: 'GraphQL query endpoint in NodeJS on AWS with DynamoDB'\ndescription: 'A single-module GraphQL endpoint with query and mutation functionality.'\nlayout: Doc\nframework: v1\nplatform: AWS\nlanguage: nodeJS\nauthorLink: 'https://github.com/gismoranas'\nauthorName: 'Gismo Ranas'\nauthorAvatar: 'https://avatars0.githubusercontent.com/u/5903107?v=4&s=140'\n-->\n\n# GraphQL query endpoint in NodeJS on AWS with DynamoDB\n\nGraphQL is cool, and the `graphql` module makes it easy to rapidly create a GraphQL service that validates queries. We use GraphQL at Serverless to query our backend services, and we love how well it fits into the serverless paradigm.\n\nLet's see how easy it is to use GraphQL with the Serverless Framework. In this example, I'll be targeting AWS. Let's build a simplistic version of an API that might be used by the front-end to retrieve a dynamic message to display in the UI, in this case greeting the user by name.\n\nStart by initializing a project and installing the [graphql](https://www.npmjs.com/package/graphql) module.\n```sh\n$ npm init\n$ npm install --save graphql\n```\n\nNow we can use it in `handler.js`, where we declare a schema and then use it to serve query requests.\n```js\n/* handler.js */\nconst {\n  graphql,\n  GraphQLSchema,\n  GraphQLObjectType,\n  GraphQLString,\n  GraphQLNonNull\n} = require('graphql')\n\n// This method just inserts the user's first name into the greeting message.\nconst getGreeting = firstName => `Hello, ${firstName}.`\n\n// Here we declare the schema and resolvers for the query\nconst schema = new GraphQLSchema({\n  query: new GraphQLObjectType({\n    name: 'RootQueryType', // an arbitrary name\n    fields: {\n      // the query has a field called 'greeting'\n      greeting: {\n        // we need to know the user's name to greet them\n        args: { firstName: { name: 'firstName', type: new GraphQLNonNull(GraphQLString) } },\n        // the greeting message is a string\n        type: GraphQLString,\n        // resolve to a greeting message\n        resolve: (parent, args) => getGreeting(args.firstName)\n      }\n    }\n  }),\n})\n\n// We want to make a GET request with ?query=<graphql query>\n// The event properties are specific to AWS. Other providers will differ.\nmodule.exports.query = (event, context, callback) => graphql(schema, event.queryStringParameters.query)\n  .then(\n    result => callback(null, {statusCode: 200, body: JSON.stringify(result)}),\n    err => callback(err)\n  )\n```\n\nPretty simple! To deploy it, define a service in `serverless.yml`, and set the handler to service HTTP requests.\n```yml\n# serverless.yml\nservice: graphql-api\n\nfunctions:\n  query:\n    handler: handler.query\n    events:\n      - http:\n          path: query\n          method: get\n```\nNow we can bring it to life:\n```sh\n$ serverless deploy\n# Serverless: Packaging service...\n# Serverless: Excluding development dependencies...\n# Serverless: Uploading CloudFormation file to S3...\n# Serverless: Uploading artifacts...\n# Serverless: Uploading service .zip file to S3 (357.34 KB)...\n# Serverless: Validating template...\n# Serverless: Updating Stack...\n# Serverless: Checking Stack update progress...\n# ..............\n# Serverless: Stack update finished...\n# Service Information\n# service: graphql-api\n# stage: dev\n# region: us-east-1\n# stack: graphql-api-dev\n# api keys:\n#   None\n# endpoints:\n#   GET - https://9qdmq5nvql.execute-api.us-east-1.amazonaws.com/dev/query\n# functions:\n#   query: graphql-api-dev-query\n\n$ curl -G 'https://9qdmq5nvql.execute-api.us-east-1.amazonaws.com/dev/query' --data-urlencode 'query={greeting(firstName: \"Jeremy\")}'\n# {\"data\":{\"greeting\":\"Hello, Jeremy.\"}}\n```\n\nIn the real world, virtually any service that does something valuable has a data store behind it. For example, suppose users have nicknames that should appear in the greeting message. We need a database to store the nicknames, and we can expand our GraphQL API to update them.\n\nLet's start by adding a database to the resource definitions in `serverless.yml`. We need a table keyed on the user's first name, which we define using CloudFormation, as well as some provider configuration to allow our function to access it.\n```yml\n# add to serverless.yml\n\nprovider:\n  name: aws\n  runtime: nodejs6.10\n  environment:\n    DYNAMODB_TABLE: ${self:service}-${self:provider.stage}\n  iamRoleStatements:\n    - Effect: Allow\n      Action:\n        - dynamodb:GetItem\n        - dynamodb:UpdateItem\n      Resource: \"arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}\"\n\nresources:\n  Resources:\n    NicknamesTable:\n      Type: 'AWS::DynamoDB::Table'\n      Properties:\n        AttributeDefinitions:\n          - AttributeName: firstName\n            AttributeType: S\n        KeySchema:\n          - AttributeName: firstName\n            KeyType: HASH\n        ProvisionedThroughput:\n          ReadCapacityUnits: 1\n          WriteCapacityUnits: 1\n        TableName: ${self:provider.environment.DYNAMODB_TABLE}\n```\n\nWe need to run `serverless deploy` again to update the changes made in `serverless.yml`:\n\n```\n$ serverless deploy\n```\n\nTo use it we need the [aws-sdk](https://www.npmjs.com/package/aws-sdk), In this example, I use the SDK's vanilla DocumentClient to access DynamoDB records.\n```sh\n$ npm install --save aws-sdk\n```\n\nInclude these in our handler, and then we can get to work.\n```js\n// add to handler.js\nconst AWS = require('aws-sdk');\nconst dynamoDb = new AWS.DynamoDB.DocumentClient();\n```\n\nBefore, we defined a method that just returned a string value for the greeting message. However, the GraphQL library can also use Promises as resolvers. Since the DocumentClient uses a callback pattern, we'll wrap these in promises and use the DynamoDB `get` method to check the database for a nickname for the user.\n\n```js\n// add to handler.js\nconst promisify = foo => new Promise((resolve, reject) => {\n  foo((error, result) => {\n    if(error) {\n      reject(error)\n    } else {\n      resolve(result)\n    }\n  })\n})\n\n// replace previous implementation of getGreeting\nconst getGreeting = firstName => promisify(callback =>\n  dynamoDb.get({\n    TableName: process.env.DYNAMODB_TABLE,\n    Key: { firstName },\n  }, callback))\n  .then(result => {\n    if(!result.Item) {\n      return firstName\n    }\n    return result.Item.nickname\n  })\n  .then(name => `Hello, ${name}.`)\n\n  // add method for updates\nconst changeNickname = (firstName, nickname) => promisify(callback =>\n  dynamoDb.update({\n    TableName: process.env.DYNAMODB_TABLE,\n    Key: { firstName },\n    UpdateExpression: 'SET nickname = :nickname',\n    ExpressionAttributeValues: {\n      ':nickname': nickname\n    }\n  }, callback))\n  .then(() => nickname)\n```\n\nYou can see here that we added a method `changeNickname`, but the GraphQL API is not yet using it. We need to declare a mutation that the front-end can use to perform updates. We previously only added a `query` declaration to the schema. Now we need a `mutation` as well.\n\n```js\n// alter schema\nconst schema = new GraphQLSchema({\n  query: new GraphQLObjectType({\n    /* unchanged */\n  }),\n  mutation: new GraphQLObjectType({\n    name: 'RootMutationType', // an arbitrary name\n    fields: {\n      changeNickname: {\n        args: {\n          // we need the user's first name as well as a preferred nickname\n          firstName: { name: 'firstName', type: new GraphQLNonNull(GraphQLString) },\n          nickname: { name: 'nickname', type: new GraphQLNonNull(GraphQLString) }\n        },\n        type: GraphQLString,\n        // update the nickname\n        resolve: (parent, args) => changeNickname(args.firstName, args.nickname)\n      }\n    }\n  })\n})\n```\n\nAfter these changes, we can make the greeting request again and receive the same result as before.\n```sh\n$ curl -G 'https://9qdmq5nvql.execute-api.us-east-1.amazonaws.com/dev/query' --data-urlencode 'query={greeting(firstName: \"Jeremy\")}'\n# {\"data\":{\"greeting\":\"Hello, Jeremy.\"}}\n```\nBut if I want the API to call me \"Jer\", I can update the nickname for \"Jeremy\".\n```sh\n$ curl -G 'https://9qdmq5nvql.execute-api.us-east-1.amazonaws.com/dev/query' --data-urlencode 'query=mutation {changeNickname(firstName:\n \"Jeremy\", nickname: \"Jer\")}'\n$ curl -G 'https://9qdmq5nvql.execute-api.us-east-1.amazonaws.com/dev/query' --data-urlencode 'query={greeting(firstName: \"Jeremy\")}'\n# {\"data\":{\"greeting\":\"Hello, Jer.\"}}\n```\n\nThe API will now call anyone named \"Jeremy\" by the nickname \"Jer\". This kind of separation of concerns lets you build front-ends and services that offload logic into back-ends that use abstract data access and processing behind one, strongly typed, validated, uniform contract that comes with rich versioning and deprecation strategies.\n\nTo deploy this service yourself, download the [source code](#todo) and deploy it with the Serverless Framework. Happy building!\n"
+        "filePath": "aws-lambda-and-heroku-postgres/index.js",
+        "code": "// index.js\n'use strict';\n\nconst { app } = require('./handler');\n\napp.listen(3000, () => {\n    console.info(`Listening on port 3000.`);\n});\n"
+      },
+      "5b3c57d1-ee3a-4328-b6da-a0da6c77c369": {
+        "id": "5b3c57d1-ee3a-4328-b6da-a0da6c77c369",
+        "parent": null,
+        "name": "package.json",
+        "type": "JSON_FILE",
+        "isDirectory": false,
+        "children": [],
+        "isRemovable": true,
+        "filePath": "package.json",
+        "code": "{\n  \"name\": \"aws-lambda-and-heroku-postgres\",\n  \"version\": \"1.0.0\",\n  \"description\": \"Shows how to connect AWS Lambda to Heroku Postgres. Uses an api:release Heroku webhook and the Heroku API to handle automatic Heroku Postgres credential rotation.\",\n  \"main\": \"handler.js\",\n  \"scripts\": {\n    \"test\": \"echo \\\"Error: no test specified\\\" && exit 1\"\n  },\n  \"author\": \"\",\n  \"license\": \"ISC\",\n  \"dependencies\": {\n    \"axios\": \"^0.18.0\",\n    \"express\": \"^4.16.4\",\n    \"pg\": \"^7.7.1\",\n    \"pg-connection-string\": \"^2.0.0\",\n    \"serverless-http\": \"^1.8.0\"\n  }\n}\n"
+      },
+      "30f7fa38-3da0-4898-91e5-953144cd8c0d": {
+        "id": "30f7fa38-3da0-4898-91e5-953144cd8c0d",
+        "parent": null,
+        "name": "package-lock.json",
+        "type": "JSON_FILE",
+        "isDirectory": false,
+        "children": [],
+        "isRemovable": true,
+        "filePath": "package-lock.json",
+        "code": "{\n  \"name\": \"my-service\",\n  \"version\": \"1.0.0\",\n  \"lockfileVersion\": 1,\n  \"requires\": true,\n  \"dependencies\": {\n    \"accepts\": {\n      \"version\": \"1.3.5\",\n      \"resolved\": \"https://registry.npmjs.org/accepts/-/accepts-1.3.5.tgz\",\n      \"integrity\": \"sha1-63d99gEXI6OxTopywIBcjoZ0a9I=\",\n      \"requires\": {\n        \"mime-types\": \"~2.1.18\",\n        \"negotiator\": \"0.6.1\"\n      }\n    },\n    \"array-flatten\": {\n      \"version\": \"1.1.1\",\n      \"resolved\": \"https://registry.npmjs.org/array-flatten/-/array-flatten-1.1.1.tgz\",\n      \"integrity\": \"sha1-ml9pkFGx5wczKPKgCJaLZOopVdI=\"\n    },\n    \"axios\": {\n      \"version\": \"0.18.0\",\n      \"resolved\": \"https://registry.npmjs.org/axios/-/axios-0.18.0.tgz\",\n      \"integrity\": \"sha1-MtU+SFHv3AoRmTts0AB4nXDAUQI=\",\n      \"requires\": {\n        \"follow-redirects\": \"^1.3.0\",\n        \"is-buffer\": \"^1.1.5\"\n      }\n    },\n    \"body-parser\": {\n      \"version\": \"1.18.3\",\n      \"resolved\": \"https://registry.npmjs.org/body-parser/-/body-parser-1.18.3.tgz\",\n      \"integrity\": \"sha1-WykhmP/dVTs6DyDe0FkrlWlVyLQ=\",\n      \"requires\": {\n        \"bytes\": \"3.0.0\",\n        \"content-type\": \"~1.0.4\",\n        \"debug\": \"2.6.9\",\n        \"depd\": \"~1.1.2\",\n        \"http-errors\": \"~1.6.3\",\n        \"iconv-lite\": \"0.4.23\",\n        \"on-finished\": \"~2.3.0\",\n        \"qs\": \"6.5.2\",\n        \"raw-body\": \"2.3.3\",\n        \"type-is\": \"~1.6.16\"\n      },\n      \"dependencies\": {\n        \"debug\": {\n          \"version\": \"2.6.9\",\n          \"resolved\": \"https://registry.npmjs.org/debug/-/debug-2.6.9.tgz\",\n          \"integrity\": \"sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==\",\n          \"requires\": {\n            \"ms\": \"2.0.0\"\n          }\n        }\n      }\n    },\n    \"buffer-writer\": {\n      \"version\": \"2.0.0\",\n      \"resolved\": \"https://registry.npmjs.org/buffer-writer/-/buffer-writer-2.0.0.tgz\",\n      \"integrity\": \"sha512-a7ZpuTZU1TRtnwyCNW3I5dc0wWNC3VR9S++Ewyk2HHZdrO3CQJqSpd+95Us590V6AL7JqUAH2IwZ/398PmNFgw==\"\n    },\n    \"bytes\": {\n      \"version\": \"3.0.0\",\n      \"resolved\": \"https://registry.npmjs.org/bytes/-/bytes-3.0.0.tgz\",\n      \"integrity\": \"sha1-0ygVQE1olpn4Wk6k+odV3ROpYEg=\"\n    },\n    \"content-disposition\": {\n      \"version\": \"0.5.2\",\n      \"resolved\": \"https://registry.npmjs.org/content-disposition/-/content-disposition-0.5.2.tgz\",\n      \"integrity\": \"sha1-DPaLud318r55YcOoUXjLhdunjLQ=\"\n    },\n    \"content-type\": {\n      \"version\": \"1.0.4\",\n      \"resolved\": \"https://registry.npmjs.org/content-type/-/content-type-1.0.4.tgz\",\n      \"integrity\": \"sha512-hIP3EEPs8tB9AT1L+NUqtwOAps4mk2Zob89MWXMHjHWg9milF/j4osnnQLXBCBFBk/tvIG/tUc9mOUJiPBhPXA==\"\n    },\n    \"cookie\": {\n      \"version\": \"0.3.1\",\n      \"resolved\": \"https://registry.npmjs.org/cookie/-/cookie-0.3.1.tgz\",\n      \"integrity\": \"sha1-5+Ch+e9DtMi6klxcWpboBtFoc7s=\"\n    },\n    \"cookie-signature\": {\n      \"version\": \"1.0.6\",\n      \"resolved\": \"https://registry.npmjs.org/cookie-signature/-/cookie-signature-1.0.6.tgz\",\n      \"integrity\": \"sha1-4wOogrNCzD7oylE6eZmXNNqzriw=\"\n    },\n    \"debug\": {\n      \"version\": \"3.1.0\",\n      \"resolved\": \"https://registry.npmjs.org/debug/-/debug-3.1.0.tgz\",\n      \"integrity\": \"sha512-OX8XqP7/1a9cqkxYw2yXss15f26NKWBpDXQd0/uK/KPqdQhxbPa994hnzjcE2VqQpDslf55723cKPUOGSmMY3g==\",\n      \"requires\": {\n        \"ms\": \"2.0.0\"\n      }\n    },\n    \"depd\": {\n      \"version\": \"1.1.2\",\n      \"resolved\": \"https://registry.npmjs.org/depd/-/depd-1.1.2.tgz\",\n      \"integrity\": \"sha1-m81S4UwJd2PnSbJ0xDRu0uVgtak=\"\n    },\n    \"destroy\": {\n      \"version\": \"1.0.4\",\n      \"resolved\": \"https://registry.npmjs.org/destroy/-/destroy-1.0.4.tgz\",\n      \"integrity\": \"sha1-l4hXRCxEdJ5CBmE+N5RiBYJqvYA=\"\n    },\n    \"ee-first\": {\n      \"version\": \"1.1.1\",\n      \"resolved\": \"https://registry.npmjs.org/ee-first/-/ee-first-1.1.1.tgz\",\n      \"integrity\": \"sha1-WQxhFWsK4vTwJVcyoViyZrxWsh0=\"\n    },\n    \"encodeurl\": {\n      \"version\": \"1.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/encodeurl/-/encodeurl-1.0.2.tgz\",\n      \"integrity\": \"sha1-rT/0yG7C0CkyL1oCw6mmBslbP1k=\"\n    },\n    \"escape-html\": {\n      \"version\": \"1.0.3\",\n      \"resolved\": \"https://registry.npmjs.org/escape-html/-/escape-html-1.0.3.tgz\",\n      \"integrity\": \"sha1-Aljq5NPQwJdN4cFpGI7wBR0dGYg=\"\n    },\n    \"etag\": {\n      \"version\": \"1.8.1\",\n      \"resolved\": \"https://registry.npmjs.org/etag/-/etag-1.8.1.tgz\",\n      \"integrity\": \"sha1-Qa4u62XvpiJorr/qg6x9eSmbCIc=\"\n    },\n    \"express\": {\n      \"version\": \"4.16.4\",\n      \"resolved\": \"https://registry.npmjs.org/express/-/express-4.16.4.tgz\",\n      \"integrity\": \"sha512-j12Uuyb4FMrd/qQAm6uCHAkPtO8FDTRJZBDd5D2KOL2eLaz1yUNdUB/NOIyq0iU4q4cFarsUCrnFDPBcnksuOg==\",\n      \"requires\": {\n        \"accepts\": \"~1.3.5\",\n        \"array-flatten\": \"1.1.1\",\n        \"body-parser\": \"1.18.3\",\n        \"content-disposition\": \"0.5.2\",\n        \"content-type\": \"~1.0.4\",\n        \"cookie\": \"0.3.1\",\n        \"cookie-signature\": \"1.0.6\",\n        \"debug\": \"2.6.9\",\n        \"depd\": \"~1.1.2\",\n        \"encodeurl\": \"~1.0.2\",\n        \"escape-html\": \"~1.0.3\",\n        \"etag\": \"~1.8.1\",\n        \"finalhandler\": \"1.1.1\",\n        \"fresh\": \"0.5.2\",\n        \"merge-descriptors\": \"1.0.1\",\n        \"methods\": \"~1.1.2\",\n        \"on-finished\": \"~2.3.0\",\n        \"parseurl\": \"~1.3.2\",\n        \"path-to-regexp\": \"0.1.7\",\n        \"proxy-addr\": \"~2.0.4\",\n        \"qs\": \"6.5.2\",\n        \"range-parser\": \"~1.2.0\",\n        \"safe-buffer\": \"5.1.2\",\n        \"send\": \"0.16.2\",\n        \"serve-static\": \"1.13.2\",\n        \"setprototypeof\": \"1.1.0\",\n        \"statuses\": \"~1.4.0\",\n        \"type-is\": \"~1.6.16\",\n        \"utils-merge\": \"1.0.1\",\n        \"vary\": \"~1.1.2\"\n      },\n      \"dependencies\": {\n        \"debug\": {\n          \"version\": \"2.6.9\",\n          \"resolved\": \"https://registry.npmjs.org/debug/-/debug-2.6.9.tgz\",\n          \"integrity\": \"sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==\",\n          \"requires\": {\n            \"ms\": \"2.0.0\"\n          }\n        },\n        \"statuses\": {\n          \"version\": \"1.4.0\",\n          \"resolved\": \"https://registry.npmjs.org/statuses/-/statuses-1.4.0.tgz\",\n          \"integrity\": \"sha512-zhSCtt8v2NDrRlPQpCNtw/heZLtfUDqxBM1udqikb/Hbk52LK4nQSwr10u77iopCW5LsyHpuXS0GnEc48mLeew==\"\n        }\n      }\n    },\n    \"finalhandler\": {\n      \"version\": \"1.1.1\",\n      \"resolved\": \"https://registry.npmjs.org/finalhandler/-/finalhandler-1.1.1.tgz\",\n      \"integrity\": \"sha512-Y1GUDo39ez4aHAw7MysnUD5JzYX+WaIj8I57kO3aEPT1fFRL4sr7mjei97FgnwhAyyzRYmQZaTHb2+9uZ1dPtg==\",\n      \"requires\": {\n        \"debug\": \"2.6.9\",\n        \"encodeurl\": \"~1.0.2\",\n        \"escape-html\": \"~1.0.3\",\n        \"on-finished\": \"~2.3.0\",\n        \"parseurl\": \"~1.3.2\",\n        \"statuses\": \"~1.4.0\",\n        \"unpipe\": \"~1.0.0\"\n      },\n      \"dependencies\": {\n        \"debug\": {\n          \"version\": \"2.6.9\",\n          \"resolved\": \"https://registry.npmjs.org/debug/-/debug-2.6.9.tgz\",\n          \"integrity\": \"sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==\",\n          \"requires\": {\n            \"ms\": \"2.0.0\"\n          }\n        },\n        \"statuses\": {\n          \"version\": \"1.4.0\",\n          \"resolved\": \"https://registry.npmjs.org/statuses/-/statuses-1.4.0.tgz\",\n          \"integrity\": \"sha512-zhSCtt8v2NDrRlPQpCNtw/heZLtfUDqxBM1udqikb/Hbk52LK4nQSwr10u77iopCW5LsyHpuXS0GnEc48mLeew==\"\n        }\n      }\n    },\n    \"follow-redirects\": {\n      \"version\": \"1.6.0\",\n      \"resolved\": \"https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.6.0.tgz\",\n      \"integrity\": \"sha512-4Oh4eI3S9OueVV41AgJ1oLjpaJUhbJ7JDGOMhe0AFqoSejl5Q2nn3eGglAzRUKVKZE8jG5MNn66TjCJMAnpsWA==\",\n      \"requires\": {\n        \"debug\": \"=3.1.0\"\n      }\n    },\n    \"forwarded\": {\n      \"version\": \"0.1.2\",\n      \"resolved\": \"https://registry.npmjs.org/forwarded/-/forwarded-0.1.2.tgz\",\n      \"integrity\": \"sha1-mMI9qxF1ZXuMBXPozszZGw/xjIQ=\"\n    },\n    \"fresh\": {\n      \"version\": \"0.5.2\",\n      \"resolved\": \"https://registry.npmjs.org/fresh/-/fresh-0.5.2.tgz\",\n      \"integrity\": \"sha1-PYyt2Q2XZWn6g1qx+OSyOhBWBac=\"\n    },\n    \"http-errors\": {\n      \"version\": \"1.6.3\",\n      \"resolved\": \"https://registry.npmjs.org/http-errors/-/http-errors-1.6.3.tgz\",\n      \"integrity\": \"sha1-i1VoC7S+KDoLW/TqLjhYC+HZMg0=\",\n      \"requires\": {\n        \"depd\": \"~1.1.2\",\n        \"inherits\": \"2.0.3\",\n        \"setprototypeof\": \"1.1.0\",\n        \"statuses\": \">= 1.4.0 < 2\"\n      }\n    },\n    \"iconv-lite\": {\n      \"version\": \"0.4.23\",\n      \"resolved\": \"https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.23.tgz\",\n      \"integrity\": \"sha512-neyTUVFtahjf0mB3dZT77u+8O0QB89jFdnBkd5P1JgYPbPaia3gXXOVL2fq8VyU2gMMD7SaN7QukTB/pmXYvDA==\",\n      \"requires\": {\n        \"safer-buffer\": \">= 2.1.2 < 3\"\n      }\n    },\n    \"inherits\": {\n      \"version\": \"2.0.3\",\n      \"resolved\": \"https://registry.npmjs.org/inherits/-/inherits-2.0.3.tgz\",\n      \"integrity\": \"sha1-Yzwsg+PaQqUC9SRmAiSA9CCCYd4=\"\n    },\n    \"ipaddr.js\": {\n      \"version\": \"1.8.0\",\n      \"resolved\": \"https://registry.npmjs.org/ipaddr.js/-/ipaddr.js-1.8.0.tgz\",\n      \"integrity\": \"sha1-6qM9bd16zo9/b+DJygRA5wZzix4=\"\n    },\n    \"is-buffer\": {\n      \"version\": \"1.1.6\",\n      \"resolved\": \"https://registry.npmjs.org/is-buffer/-/is-buffer-1.1.6.tgz\",\n      \"integrity\": \"sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==\"\n    },\n    \"media-typer\": {\n      \"version\": \"0.3.0\",\n      \"resolved\": \"https://registry.npmjs.org/media-typer/-/media-typer-0.3.0.tgz\",\n      \"integrity\": \"sha1-hxDXrwqmJvj/+hzgAWhUUmMlV0g=\"\n    },\n    \"merge-descriptors\": {\n      \"version\": \"1.0.1\",\n      \"resolved\": \"https://registry.npmjs.org/merge-descriptors/-/merge-descriptors-1.0.1.tgz\",\n      \"integrity\": \"sha1-sAqqVW3YtEVoFQ7J0blT8/kMu2E=\"\n    },\n    \"methods\": {\n      \"version\": \"1.1.2\",\n      \"resolved\": \"https://registry.npmjs.org/methods/-/methods-1.1.2.tgz\",\n      \"integrity\": \"sha1-VSmk1nZUE07cxSZmVoNbD4Ua/O4=\"\n    },\n    \"mime\": {\n      \"version\": \"1.4.1\",\n      \"resolved\": \"https://registry.npmjs.org/mime/-/mime-1.4.1.tgz\",\n      \"integrity\": \"sha512-KI1+qOZu5DcW6wayYHSzR/tXKCDC5Om4s1z2QJjDULzLcmf3DvzS7oluY4HCTrc+9FiKmWUgeNLg7W3uIQvxtQ==\"\n    },\n    \"mime-db\": {\n      \"version\": \"1.37.0\",\n      \"resolved\": \"https://registry.npmjs.org/mime-db/-/mime-db-1.37.0.tgz\",\n      \"integrity\": \"sha512-R3C4db6bgQhlIhPU48fUtdVmKnflq+hRdad7IyKhtFj06VPNVdk2RhiYL3UjQIlso8L+YxAtFkobT0VK+S/ybg==\"\n    },\n    \"mime-types\": {\n      \"version\": \"2.1.21\",\n      \"resolved\": \"https://registry.npmjs.org/mime-types/-/mime-types-2.1.21.tgz\",\n      \"integrity\": \"sha512-3iL6DbwpyLzjR3xHSFNFeb9Nz/M8WDkX33t1GFQnFOllWk8pOrh/LSrB5OXlnlW5P9LH73X6loW/eogc+F5lJg==\",\n      \"requires\": {\n        \"mime-db\": \"~1.37.0\"\n      }\n    },\n    \"ms\": {\n      \"version\": \"2.0.0\",\n      \"resolved\": \"https://registry.npmjs.org/ms/-/ms-2.0.0.tgz\",\n      \"integrity\": \"sha1-VgiurfwAvmwpAd9fmGF4jeDVl8g=\"\n    },\n    \"negotiator\": {\n      \"version\": \"0.6.1\",\n      \"resolved\": \"https://registry.npmjs.org/negotiator/-/negotiator-0.6.1.tgz\",\n      \"integrity\": \"sha1-KzJxhOiZIQEXeyhWP7XnECrNDKk=\"\n    },\n    \"on-finished\": {\n      \"version\": \"2.3.0\",\n      \"resolved\": \"https://registry.npmjs.org/on-finished/-/on-finished-2.3.0.tgz\",\n      \"integrity\": \"sha1-IPEzZIGwg811M3mSoWlxqi2QaUc=\",\n      \"requires\": {\n        \"ee-first\": \"1.1.1\"\n      }\n    },\n    \"packet-reader\": {\n      \"version\": \"0.3.1\",\n      \"resolved\": \"https://registry.npmjs.org/packet-reader/-/packet-reader-0.3.1.tgz\",\n      \"integrity\": \"sha1-zWLmCvjX/qinBexP+ZCHHEaHHyc=\"\n    },\n    \"parseurl\": {\n      \"version\": \"1.3.2\",\n      \"resolved\": \"https://registry.npmjs.org/parseurl/-/parseurl-1.3.2.tgz\",\n      \"integrity\": \"sha1-/CidTtiZMRlGDBViUyYs3I3mW/M=\"\n    },\n    \"path-to-regexp\": {\n      \"version\": \"0.1.7\",\n      \"resolved\": \"https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-0.1.7.tgz\",\n      \"integrity\": \"sha1-32BBeABfUi8V60SQ5yR6G/qmf4w=\"\n    },\n    \"pg\": {\n      \"version\": \"7.7.1\",\n      \"resolved\": \"https://registry.npmjs.org/pg/-/pg-7.7.1.tgz\",\n      \"integrity\": \"sha512-p3I0mXOmUvCoVlCMFW6iYSrnguPol6q8He15NGgSIdM3sPGjFc+8JGCeKclw8ZR4ETd+Jxy2KNiaPUcocHZeMw==\",\n      \"requires\": {\n        \"buffer-writer\": \"2.0.0\",\n        \"packet-reader\": \"0.3.1\",\n        \"pg-connection-string\": \"0.1.3\",\n        \"pg-pool\": \"^2.0.4\",\n        \"pg-types\": \"~1.12.1\",\n        \"pgpass\": \"1.x\",\n        \"semver\": \"4.3.2\"\n      },\n      \"dependencies\": {\n        \"pg-connection-string\": {\n          \"version\": \"0.1.3\",\n          \"resolved\": \"https://registry.npmjs.org/pg-connection-string/-/pg-connection-string-0.1.3.tgz\",\n          \"integrity\": \"sha1-2hhHsglA5C7hSSvq9l1J2RskXfc=\"\n        }\n      }\n    },\n    \"pg-connection-string\": {\n      \"version\": \"2.0.0\",\n      \"resolved\": \"https://registry.npmjs.org/pg-connection-string/-/pg-connection-string-2.0.0.tgz\",\n      \"integrity\": \"sha1-Pu/lmX4G2Ugh5NUC5CtqHHP434I=\"\n    },\n    \"pg-pool\": {\n      \"version\": \"2.0.5\",\n      \"resolved\": \"https://registry.npmjs.org/pg-pool/-/pg-pool-2.0.5.tgz\",\n      \"integrity\": \"sha512-T4W9qzP2LjItXuXbW6jgAF2AY0jHp6IoTxRhM3GB7yzfBxzDnA3GCm0sAduzmmiCybMqD0+V1HiqIG5X2YWqlQ==\"\n    },\n    \"pg-types\": {\n      \"version\": \"1.12.1\",\n      \"resolved\": \"https://registry.npmjs.org/pg-types/-/pg-types-1.12.1.tgz\",\n      \"integrity\": \"sha1-1kCH45A7WP+q0nnnWVxSIIoUw9I=\",\n      \"requires\": {\n        \"postgres-array\": \"~1.0.0\",\n        \"postgres-bytea\": \"~1.0.0\",\n        \"postgres-date\": \"~1.0.0\",\n        \"postgres-interval\": \"^1.1.0\"\n      }\n    },\n    \"pgpass\": {\n      \"version\": \"1.0.2\",\n      \"resolved\": \"https://registry.npmjs.org/pgpass/-/pgpass-1.0.2.tgz\",\n      \"integrity\": \"sha1-Knu0G2BltnkH6R2hsHwYR8h3swY=\",\n      \"requires\": {\n        \"split\": \"^1.0.0\"\n      }\n    },\n    \"postgres-array\": {\n      \"version\": \"1.0.3\",\n      \"resolved\": \"https://registry.npmjs.org/postgres-array/-/postgres-array-1.0.3.tgz\",\n      \"integrity\": \"sha512-5wClXrAP0+78mcsNX3/ithQ5exKvCyK5lr5NEEEeGwwM6NJdQgzIJBVxLvRW+huFpX92F2QnZ5CcokH0VhK2qQ==\"\n    },\n    \"postgres-bytea\": {\n      \"version\": \"1.0.0\",\n      \"resolved\": \"https://registry.npmjs.org/postgres-bytea/-/postgres-bytea-1.0.0.tgz\",\n      \"integrity\": \"sha1-AntTPAqokOJtFy1Hz5zOzFIazTU=\"\n    },\n    \"postgres-date\": {\n      \"version\": \"1.0.3\",\n      \"resolved\": \"https://registry.npmjs.org/postgres-date/-/postgres-date-1.0.3.tgz\",\n      \"integrity\": \"sha1-4tiXAu/bJY/52c7g/pG9BpdSV6g=\"\n    },\n    \"postgres-interval\": {\n      \"version\": \"1.1.2\",\n      \"resolved\": \"https://registry.npmjs.org/postgres-interval/-/postgres-interval-1.1.2.tgz\",\n      \"integrity\": \"sha512-fC3xNHeTskCxL1dC8KOtxXt7YeFmlbTYtn7ul8MkVERuTmf7pI4DrkAxcw3kh1fQ9uz4wQmd03a1mRiXUZChfQ==\",\n      \"requires\": {\n        \"xtend\": \"^4.0.0\"\n      }\n    },\n    \"proxy-addr\": {\n      \"version\": \"2.0.4\",\n      \"resolved\": \"https://registry.npmjs.org/proxy-addr/-/proxy-addr-2.0.4.tgz\",\n      \"integrity\": \"sha512-5erio2h9jp5CHGwcybmxmVqHmnCBZeewlfJ0pex+UW7Qny7OOZXTtH56TGNyBizkgiOwhJtMKrVzDTeKcySZwA==\",\n      \"requires\": {\n        \"forwarded\": \"~0.1.2\",\n        \"ipaddr.js\": \"1.8.0\"\n      }\n    },\n    \"qs\": {\n      \"version\": \"6.5.2\",\n      \"resolved\": \"https://registry.npmjs.org/qs/-/qs-6.5.2.tgz\",\n      \"integrity\": \"sha512-N5ZAX4/LxJmF+7wN74pUD6qAh9/wnvdQcjq9TZjevvXzSUo7bfmw91saqMjzGS2xq91/odN2dW/WOl7qQHNDGA==\"\n    },\n    \"range-parser\": {\n      \"version\": \"1.2.0\",\n      \"resolved\": \"https://registry.npmjs.org/range-parser/-/range-parser-1.2.0.tgz\",\n      \"integrity\": \"sha1-9JvmtIeJTdxA3MlKMi9hEJLgDV4=\"\n    },\n    \"raw-body\": {\n      \"version\": \"2.3.3\",\n      \"resolved\": \"https://registry.npmjs.org/raw-body/-/raw-body-2.3.3.tgz\",\n      \"integrity\": \"sha512-9esiElv1BrZoI3rCDuOuKCBRbuApGGaDPQfjSflGxdy4oyzqghxu6klEkkVIvBje+FF0BX9coEv8KqW6X/7njw==\",\n      \"requires\": {\n        \"bytes\": \"3.0.0\",\n        \"http-errors\": \"1.6.3\",\n        \"iconv-lite\": \"0.4.23\",\n        \"unpipe\": \"1.0.0\"\n      }\n    },\n    \"safe-buffer\": {\n      \"version\": \"5.1.2\",\n      \"resolved\": \"https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz\",\n      \"integrity\": \"sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g==\"\n    },\n    \"safer-buffer\": {\n      \"version\": \"2.1.2\",\n      \"resolved\": \"https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz\",\n      \"integrity\": \"sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==\"\n    },\n    \"semver\": {\n      \"version\": \"4.3.2\",\n      \"resolved\": \"http://registry.npmjs.org/semver/-/semver-4.3.2.tgz\",\n      \"integrity\": \"sha1-x6BxWKgL7dBSNVt3DYLWZA+AO+c=\"\n    },\n    \"send\": {\n      \"version\": \"0.16.2\",\n      \"resolved\": \"https://registry.npmjs.org/send/-/send-0.16.2.tgz\",\n      \"integrity\": \"sha512-E64YFPUssFHEFBvpbbjr44NCLtI1AohxQ8ZSiJjQLskAdKuriYEP6VyGEsRDH8ScozGpkaX1BGvhanqCwkcEZw==\",\n      \"requires\": {\n        \"debug\": \"2.6.9\",\n        \"depd\": \"~1.1.2\",\n        \"destroy\": \"~1.0.4\",\n        \"encodeurl\": \"~1.0.2\",\n        \"escape-html\": \"~1.0.3\",\n        \"etag\": \"~1.8.1\",\n        \"fresh\": \"0.5.2\",\n        \"http-errors\": \"~1.6.2\",\n        \"mime\": \"1.4.1\",\n        \"ms\": \"2.0.0\",\n        \"on-finished\": \"~2.3.0\",\n        \"range-parser\": \"~1.2.0\",\n        \"statuses\": \"~1.4.0\"\n      },\n      \"dependencies\": {\n        \"debug\": {\n          \"version\": \"2.6.9\",\n          \"resolved\": \"https://registry.npmjs.org/debug/-/debug-2.6.9.tgz\",\n          \"integrity\": \"sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==\",\n          \"requires\": {\n            \"ms\": \"2.0.0\"\n          }\n        },\n        \"statuses\": {\n          \"version\": \"1.4.0\",\n          \"resolved\": \"https://registry.npmjs.org/statuses/-/statuses-1.4.0.tgz\",\n          \"integrity\": \"sha512-zhSCtt8v2NDrRlPQpCNtw/heZLtfUDqxBM1udqikb/Hbk52LK4nQSwr10u77iopCW5LsyHpuXS0GnEc48mLeew==\"\n        }\n      }\n    },\n    \"serve-static\": {\n      \"version\": \"1.13.2\",\n      \"resolved\": \"https://registry.npmjs.org/serve-static/-/serve-static-1.13.2.tgz\",\n      \"integrity\": \"sha512-p/tdJrO4U387R9oMjb1oj7qSMaMfmOyd4j9hOFoxZe2baQszgHcSWjuya/CiT5kgZZKRudHNOA0pYXOl8rQ5nw==\",\n      \"requires\": {\n        \"encodeurl\": \"~1.0.2\",\n        \"escape-html\": \"~1.0.3\",\n        \"parseurl\": \"~1.3.2\",\n        \"send\": \"0.16.2\"\n      }\n    },\n    \"serverless-http\": {\n      \"version\": \"1.8.0\",\n      \"resolved\": \"https://registry.npmjs.org/serverless-http/-/serverless-http-1.8.0.tgz\",\n      \"integrity\": \"sha512-zLQp6iPvnJUPQ7r7rqSUQEoeK/1FQnS/4KYpP/lMcgbvIv1nOf+3mQn+ATUUz0Sjh4991oug7tnHjaDp/xWcdQ==\"\n    },\n    \"setprototypeof\": {\n      \"version\": \"1.1.0\",\n      \"resolved\": \"https://registry.npmjs.org/setprototypeof/-/setprototypeof-1.1.0.tgz\",\n      \"integrity\": \"sha512-BvE/TwpZX4FXExxOxZyRGQQv651MSwmWKZGqvmPcRIjDqWub67kTKuIMx43cZZrS/cBBzwBcNDWoFxt2XEFIpQ==\"\n    },\n    \"split\": {\n      \"version\": \"1.0.1\",\n      \"resolved\": \"https://registry.npmjs.org/split/-/split-1.0.1.tgz\",\n      \"integrity\": \"sha512-mTyOoPbrivtXnwnIxZRFYRrPNtEFKlpB2fvjSnCQUiAA6qAZzqwna5envK4uk6OIeP17CsdF3rSBGYVBsU0Tkg==\",\n      \"requires\": {\n        \"through\": \"2\"\n      }\n    },\n    \"statuses\": {\n      \"version\": \"1.5.0\",\n      \"resolved\": \"https://registry.npmjs.org/statuses/-/statuses-1.5.0.tgz\",\n      \"integrity\": \"sha1-Fhx9rBd2Wf2YEfQ3cfqZOBR4Yow=\"\n    },\n    \"through\": {\n      \"version\": \"2.3.8\",\n      \"resolved\": \"http://registry.npmjs.org/through/-/through-2.3.8.tgz\",\n      \"integrity\": \"sha1-DdTJ/6q8NXlgsbckEV1+Doai4fU=\"\n    },\n    \"type-is\": {\n      \"version\": \"1.6.16\",\n      \"resolved\": \"https://registry.npmjs.org/type-is/-/type-is-1.6.16.tgz\",\n      \"integrity\": \"sha512-HRkVv/5qY2G6I8iab9cI7v1bOIdhm94dVjQCPFElW9W+3GeDOSHmy2EBYe4VTApuzolPcmgFTN3ftVJRKR2J9Q==\",\n      \"requires\": {\n        \"media-typer\": \"0.3.0\",\n        \"mime-types\": \"~2.1.18\"\n      }\n    },\n    \"unpipe\": {\n      \"version\": \"1.0.0\",\n      \"resolved\": \"https://registry.npmjs.org/unpipe/-/unpipe-1.0.0.tgz\",\n      \"integrity\": \"sha1-sr9O6FFKrmFltIF4KdIbLvSZBOw=\"\n    },\n    \"utils-merge\": {\n      \"version\": \"1.0.1\",\n      \"resolved\": \"https://registry.npmjs.org/utils-merge/-/utils-merge-1.0.1.tgz\",\n      \"integrity\": \"sha1-n5VxD1CiZ5R7LMwSR0HBAoQn5xM=\"\n    },\n    \"vary\": {\n      \"version\": \"1.1.2\",\n      \"resolved\": \"https://registry.npmjs.org/vary/-/vary-1.1.2.tgz\",\n      \"integrity\": \"sha1-IpnwLG3tMNSllhsLn3RSShj2NPw=\"\n    },\n    \"xtend\": {\n      \"version\": \"4.0.1\",\n      \"resolved\": \"https://registry.npmjs.org/xtend/-/xtend-4.0.1.tgz\",\n      \"integrity\": \"sha1-pcbVMr5lbiPbgg77lDofBJmNY68=\"\n    }\n  }\n}\n"
       }
     },
-    "rootNode": "cc7d3058-9bfd-4d1f-b188-9061e08fd656",
+    "rootNode": "aac0071a-5289-4479-926f-f8629841e68e",
     "openFiles": [
-      "c685cb15-6d7d-44c8-82ab-8544bfcaef59"
+      "9bd1ca27-3604-4d24-8f21-c38155f36a0c"
     ],
-    "currentFileId": "c685cb15-6d7d-44c8-82ab-8544bfcaef59",
+    "currentFileId": "9bd1ca27-3604-4d24-8f21-c38155f36a0c",
     "resources": {
-      "apigusEast1queryqueryget": {
-        "name": "apigusEast1queryqueryget",
+      "apigusEast1hellohelloget": {
         "type": "API_GATEWAY",
+        "name": "apigusEast1hellohelloget",
         "config": {
           "selectedRegion": "us-east-1",
+          "apiName": "hello",
           "apiMode": 0,
-          "apiName": "query",
           "endpointType": "EDGE",
+          "mode": 0,
+          "resourceName": "hello",
+          "resourcePath": "/hello",
           "resourceMode": 0,
-          "resourceName": "query",
-          "resourcePath": "/query",
           "restMethod": "GET",
           "proxyIntegration": true,
           "enableCORS": false,
           "stageMode": 0,
-          "stageName": "dev",
-          "mode": 0
+          "stageName": "dev"
         }
       },
-      "ddbgraphqlApiDev": {
-        "name": "ddbgraphqlApiDev",
-        "type": "DynamoDB",
+      "apigusEast1helloonreleasepost": {
+        "type": "API_GATEWAY",
+        "name": "apigusEast1helloonreleasepost",
         "config": {
+          "selectedRegion": "us-east-1",
+          "apiName": "hello",
+          "apiMode": 0,
+          "endpointType": "EDGE",
           "mode": 0,
-          "operation": "update",
-          "table": {
-            "arn": "",
-            "name": "graphql-api-dev",
-            "partitionKey": "firstName",
-            "partitionKeyType": "S",
-            "hasSortKey": false,
-            "sortKey": "",
-            "sortKeyType": "S",
-            "payPerRequest": true,
-            "mode": 0
-          },
-          "isGlobalEditMode": false,
-          "parameters": {
-            "TableName": "graphql-api-dev",
-            "Key": {
-              "firstName": "@{indunil}"
-            },
-            "ExpressionAttributeValues": {
-              ":nickname": "@{sachithra}"
-            },
-            "UpdateExpression": "set "
-          },
-          "triggerParams": {},
-          "validator": {
-            "validatableFields": {},
-            "validity": true
-          },
-          "valid": true
+          "resourceName": "onrelease",
+          "resourcePath": "/onrelease",
+          "resourceMode": 0,
+          "restMethod": "POST",
+          "proxyIntegration": true,
+          "enableCORS": false,
+          "stageMode": 0,
+          "stageName": "dev"
         }
       }
     },
     "customTemplate": {
       "dialect": "CloudFormation",
-      "definitions": {
-        "Resources": {
-          "NicknamesTable": {
-            "Type": "AWS::DynamoDB::Table",
-            "Properties": {
-              "AttributeDefinitions": [
-                {
-                  "AttributeName": "firstName",
-                  "AttributeType": "S"
-                }
-              ],
-              "KeySchema": [
-                {
-                  "AttributeName": "firstName",
-                  "KeyType": "HASH"
-                }
-              ],
-              "ProvisionedThroughput": {
-                "ReadCapacityUnits": 1,
-                "WriteCapacityUnits": 1
-              },
-              "TableName": "graphql-api-dev"
-            }
-          }
-        }
-      }
+      "definitions": null
     },
     "envVariables": [
-      {
-        "lambdaId": "all",
-        "varKey": "DYNAMODB_TABLE",
-        "varValue": "graphql-api-dev",
-        "shouldPersist": true,
-        "displayOnly": false,
-        "editable": true
-      },
       {
         "lambdaId": "all",
         "varKey": "SIGMA_AWS_ACC_ID",
@@ -225,32 +170,42 @@
     ],
     "packageJSON": {
       "dependencies": {
-        "aws-sdk": {
-          "name": "aws-sdk",
+        "axios": {
+          "name": "axios",
           "language": "javascript",
-          "version": "^2.136.0"
+          "version": "^0.18.0"
         },
-        "eslint-plugin-react": {
-          "name": "eslint-plugin-react",
+        "express": {
+          "name": "express",
           "language": "javascript",
-          "version": "^7.4.0"
+          "version": "^4.16.4"
         },
-        "graphql": {
-          "name": "graphql",
+        "pg": {
+          "name": "pg",
           "language": "javascript",
-          "version": "^0.11.7"
+          "version": "^7.7.1"
+        },
+        "pg-connection-string": {
+          "name": "pg-connection-string",
+          "language": "javascript",
+          "version": "^2.0.0"
+        },
+        "serverless-http": {
+          "name": "serverless-http",
+          "language": "javascript",
+          "version": "^1.8.0"
         }
       }
     }
   },
   "PROJECT_META": {
-    "projectName": "aws-node-graphql-api-with-dynamodb",
-    "projectDescription": "A single-module GraphQL endpoint with query and mutation functionality.",
+    "projectName": "aws-lambda-and-heroku-postgres",
+    "projectDescription": "Shows how to connect AWS Lambda to Heroku Postgres. Uses an api:release Heroku webhook and the Heroku API to handle automatic Heroku Postgres credential rotation.",
     "projectVersion": "1.0.0",
     "projectRegion": "us-east-1",
     "platform": "AWS",
     "platformRegions": {},
-    "lastSave": 1576230177292
+    "lastSave": 1576230628520
   },
   "VCS_STATE": {
     "provider": "GitHub",
