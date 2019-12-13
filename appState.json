@@ -23,7 +23,7 @@
         "children": [],
         "isRemovable": true,
         "filePath": "aws-lambda-and-heroku-postgres/handler.js",
-        "code": "// handler.js\n'use strict';\n\nconst express = require('express');\nconst serverless = require('serverless-http');\nconst pg = require('pg');\nconst axios = require('axios');\nconst parsePgConnStr = require('pg-connection-string').parse;\n\n// Replace with your token or API key and your Heroku Postgres resource name\nconst herokuApiKey = '';\nconst herokuPostgresId = '';\nconst herokuClient = axios.create({\n    baseURL: 'https://api.heroku.com/',\n    headers: {\n        'Authorization': `Bearer ${herokuApiKey}`,\n        'Accept': 'application/vnd.heroku+json; version=3',\n    },\n});\n\nlet pgConfig;\nlet pgPool;\n\nconst app = express();\n\nconst createConn = async () => {\n    console.log('Creating PG connection.');\n\n    const credsResponse = await herokuClient.get(`addons/${herokuPostgresId}/config`);\n    const pgConnStr = credsResponse.data[0]['value'];\n\n    pgConfig = {\n        ...parsePgConnStr(pgConnStr), ...{\n            max: 1,\n            ssl: true,\n        },\n    };\n\n    pgPool = new pg.Pool(pgConfig);\n};\n\nconst performQuery = async () => {\n    const client = await pgPool.connect();\n    const result = await client.query('SELECT now()');\n    client.release();\n    return result;\n};\n\napp.get('/hello', async function (req, res) {\n    if (!pgPool) {\n        // Cold start. Get Heroku Postgres creds and create pool.\n        await createConn();\n    } else {\n        console.log('Using existing PG connection.');\n    }\n\n    try {\n        const result = await performQuery();\n\n        res.json({\n            result: `According to PostgreSQL, the time is: ${result.rows[0].now}`,\n            pgConfigUsed: pgConfig,\n        });\n        return;\n    } catch (e) {\n        res.json({\n            error: e.message,\n        });\n        return;\n    }\n\n});\n\napp.post('/onrelease', async function (req, res) {\n    // Get Heroku Postgres creds and replace pool with new one.\n    await createConn();\n\n    // Response with 2xx response so Heroku knows webhook was successful.\n    // Response body doesn't matter.\n    res.status(204).send();\n});\n\nmodule.exports = {\n    app,\n    hello: serverless(app),\n};\n",
+        "code": "// handler.js\n'use strict';\n\nconst express = require('express');\nconst serverless = require('serverless-http');\nconst pg = require('pg');\nconst axios = require('axios');\nconst parsePgConnStr = require('pg-connection-string').parse;\n\n// Replace with your token or API key and your Heroku Postgres resource name\nconst herokuApiKey = '6c4ac8cc-21c1-4b97-9e13-a746722d23fb';\nconst herokuPostgresId = 'postgresql-silhouetted-50650';\nconst herokuClient = axios.create({\n    baseURL: 'https://api.heroku.com/',\n    headers: {\n        'Authorization': `Bearer ${herokuApiKey}`,\n        'Accept': 'application/vnd.heroku+json; version=3',\n    },\n});\n\nlet pgConfig;\nlet pgPool;\n\nconst app = express();\n\nconst createConn = async () => {\n    console.log('Creating PG connection.');\n\n    const credsResponse = await herokuClient.get(`addons/${herokuPostgresId}/config`);\n    const pgConnStr = credsResponse.data[0]['value'];\n\n    pgConfig = {\n        ...parsePgConnStr(pgConnStr), ...{\n            max: 1,\n            ssl: true,\n        },\n    };\n\n    pgPool = new pg.Pool(pgConfig);\n};\n\nconst performQuery = async () => {\n    const client = await pgPool.connect();\n    const result = await client.query('SELECT now()');\n    client.release();\n    return result;\n};\n\napp.get('/hello', async function (req, res) {\n    if (!pgPool) {\n        // Cold start. Get Heroku Postgres creds and create pool.\n        await createConn();\n    } else {\n        console.log('Using existing PG connection.');\n    }\n\n    try {\n        const result = await performQuery();\n\n        res.json({\n            result: `According to PostgreSQL, the time is: ${result.rows[0].now}`,\n            pgConfigUsed: pgConfig,\n        });\n        return;\n    } catch (e) {\n        res.json({\n            error: e.message,\n        });\n        return;\n    }\n\n});\n\napp.post('/onrelease', async function (req, res) {\n    // Get Heroku Postgres creds and replace pool with new one.\n    await createConn();\n\n    // Response with 2xx response so Heroku knows webhook was successful.\n    // Response body doesn't matter.\n    res.status(204).send();\n});\n\nmodule.exports = {\n    app,\n    hello: serverless(app),\n};\n",
         "config": {
           "runtime": "nodejs8.10",
           "handler": "hello",
@@ -40,7 +40,16 @@
             "resourceName": "apigusEast1helloonreleasepost",
             "config": {}
           }
-        ]
+        ],
+        "testCases": {
+          "36695248-8dc0-4d6b-a5f3-29de993b8a36": {
+            "id": "36695248-8dc0-4d6b-a5f3-29de993b8a36",
+            "name": "Test event",
+            "functionId": "944c7597-b333-441f-910e-e05ad52b2e2b",
+            "event": "{\"key1\": \"value1\", \"key2\": \"value2\", \"key3\": \"value3\"}",
+            "eventTemplate": "hello-world"
+          }
+        }
       },
       "363f4b72-788a-4c55-902c-e2a620afb0d6": {
         "id": "363f4b72-788a-4c55-902c-e2a620afb0d6",
@@ -205,7 +214,7 @@
     "projectRegion": "us-east-1",
     "platform": "AWS",
     "platformRegions": {},
-    "lastSave": 1576238642159
+    "lastSave": 1576240229888
   },
   "VCS_STATE": {
     "provider": "GitHub",

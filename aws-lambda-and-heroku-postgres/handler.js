@@ -8,8 +8,8 @@ const axios = require('axios');
 const parsePgConnStr = require('pg-connection-string').parse;
 
 // Replace with your token or API key and your Heroku Postgres resource name
-const herokuApiKey = '';
-const herokuPostgresId = '';
+const herokuApiKey = '6c4ac8cc-21c1-4b97-9e13-a746722d23fb';
+const herokuPostgresId = 'postgresql-silhouetted-50650';
 const herokuClient = axios.create({
     baseURL: 'https://api.heroku.com/',
     headers: {
