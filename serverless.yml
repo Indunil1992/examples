@@ -1,33 +1,37 @@
-service: serverless-dynamodb-backup
-
-custom:
-  bucket: EXAMPLE
-  dynamoDBTableName: "${opt:stage, self:provider.stage}_EXAMPLE"
-  prefix: FOO
+service: graphql-api
 
 provider:
   name: aws
-  runtime: nodejs6.10
-  stage: staging
+  runtime: nodejs10.x
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${self:provider.stage}
   iamRoleStatements:
     - Effect: Allow
       Action:
-        - s3:PutObject
-      Resource: "arn:aws:s3:::${self:custom.bucket}/${self:custom.prefix}/${self:custom.dynamoDBTableName}/*"
-    - Effect: Allow
-      Action:
-        - "dynamodb:GetRecords"
-        - "dynamodb:GetShardIterator"
-        - "dynamodb:DescribeStream"
-        - "dynamodb:ListStreams"
-      Resource: "arn:aws:dynamodb:ap-southeast-1:*:table/${self:custom.dynamoDBTableName}/stream/*"
+        - dynamodb:GetItem
+        - dynamodb:UpdateItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
 
 functions:
-  backup:
-    handler: handler.backup
-    environment:
-      STAGE: "${opt:stage, self:provider.stage}"
-      BUCKET: "${self:custom.bucket}"
-      TABLE: "${self:custom.dynamoDBTableName}"
-      PREFIX: "${self:custom.prefix}"
-    timeout: 300
+  query:
+    handler: handler.query
+    events:
+      - http:
+          path: query
+          method: get
+
+resources:
+  Resources:
+    NicknamesTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: firstName
+            AttributeType: S
+        KeySchema:
+          - AttributeName: firstName
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
