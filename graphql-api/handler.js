@@ -39,10 +39,10 @@ const changeNickname = (firstName, nickname) => promisify(callback =>
   dynamoDb.update({
     TableName: 'graphql-api-dev',
     Key: {
-      'firstName': firstName
+      'firstName': indu
     },
     ExpressionAttributeValues: {
-      ':nickname': nickname
+      ':nickname': sachithra
     },
     UpdateExpression: 'set '
   }, callback))
