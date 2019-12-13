@@ -22,7 +22,7 @@
         "children": [],
         "isRemovable": true,
         "filePath": "graphql-api/handler.js",
-        "code": "const {\n  graphql,\n  GraphQLSchema,\n  GraphQLObjectType,\n  GraphQLString,\n  GraphQLNonNull,\n} = require('graphql');\n\nconst AWS = require('aws-sdk');\n\nconst dynamoDb = new AWS.DynamoDB.DocumentClient();\n\nconst promisify = foo => new Promise((resolve, reject) => {\n  foo((error, result) => {\n    if (error) {\n      reject(error);\n    } else {\n      resolve(result);\n    }\n  });\n});\n\nconst getGreeting = firstName => promisify(callback =>\n  dynamoDb.get({\n    TableName: process.env.DYNAMODB_TABLE,\n    Key: { firstName },\n  }, callback))\n  .then((result) => {\n    if (!result.Item) {\n      return firstName;\n    }\n    return result.Item.nickname;\n  })\n  .then(name => `Hello, ${name}.`);\n\nconst changeNickname = (firstName, nickname) => promisify(callback =>\n  dynamoDb.update({\n    TableName: process.env.DYNAMODB_TABLE,\n    Key: { firstName },\n    UpdateExpression: 'SET nickname = :nickname',\n    ExpressionAttributeValues: {\n      ':nickname': nickname,\n    },\n  }, callback))\n  .then(() => nickname);\n\nconst schema = new GraphQLSchema({\n  query: new GraphQLObjectType({\n    name: 'RootQueryType', // an arbitrary name\n    fields: {\n      // the query has a field called 'greeting'\n      greeting: {\n        // we need to know the user's name to greet them\n        args: { firstName: { name: 'firstName', type: new GraphQLNonNull(GraphQLString) } },\n        // the greeting message is a string\n        type: GraphQLString,\n        // resolve to a greeting message\n        resolve: (parent, args) => getGreeting(args.firstName),\n      },\n    },\n  }),\n  mutation: new GraphQLObjectType({\n    name: 'RootMutationType', // an arbitrary name\n    fields: {\n      changeNickname: {\n        args: {\n          firstName: { name: 'firstName', type: new GraphQLNonNull(GraphQLString) },\n          nickname: { name: 'nickname', type: new GraphQLNonNull(GraphQLString) },\n        },\n        type: GraphQLString,\n        resolve: (parent, args) => changeNickname(args.firstName, args.nickname),\n      },\n    },\n  }),\n});\n\n// We want to make a GET request with ?query=<graphql query>\n// The event properties are specific to AWS. Other providers will differ.\nmodule.exports.query = (event, context, callback) =>\n  graphql(schema, event.queryStringParameters.query)\n  .then(\n    result => callback(null, { statusCode: 200, body: JSON.stringify(result) }),\n    err => callback(err)\n  );\n",
+        "code": "const {\n  graphql,\n  GraphQLSchema,\n  GraphQLObjectType,\n  GraphQLString,\n  GraphQLNonNull,\n} = require('graphql');\n\nconst AWS = require('aws-sdk');\n\nconst dynamoDb = new AWS.DynamoDB.DocumentClient();\n\nconst promisify = foo => new Promise((resolve, reject) => {\n  foo((error, result) => {\n    if (error) {\n      reject(error);\n    } else {\n      resolve(result);\n    }\n  });\n});\n\nconst getGreeting = firstName => promisify(callback =>\n  dynamoDb.get({\n    TableName: 'graphql-api-dev',\n    Key: {\n      'firstName': indunil\n    }\n  }, callback))\n  .then((result) => {\n    if (!result.Item) {\n      return firstName;\n    }\n    return result.Item.nickname;\n  })\n  .then(name => `Hello, ${name}.`);\n\nconst changeNickname = (firstName, nickname) => promisify(callback =>\n  dynamoDb.update({\n    TableName: 'graphql-api-dev',\n    Key: {\n      'firstName': firstName\n    },\n    ExpressionAttributeValues: {\n      ':nickname': nickname\n    },\n    UpdateExpression: 'set '\n  }, callback))\n  .then(() => nickname);\n\nconst schema = new GraphQLSchema({\n  query: new GraphQLObjectType({\n    name: 'RootQueryType', // an arbitrary name\n    fields: {\n      // the query has a field called 'greeting'\n      greeting: {\n        // we need to know the user's name to greet them\n        args: { firstName: { name: 'firstName', type: new GraphQLNonNull(GraphQLString) } },\n        // the greeting message is a string\n        type: GraphQLString,\n        // resolve to a greeting message\n        resolve: (parent, args) => getGreeting(args.firstName),\n      },\n    },\n  }),\n  mutation: new GraphQLObjectType({\n    name: 'RootMutationType', // an arbitrary name\n    fields: {\n      changeNickname: {\n        args: {\n          firstName: { name: 'firstName', type: new GraphQLNonNull(GraphQLString) },\n          nickname: { name: 'nickname', type: new GraphQLNonNull(GraphQLString) },\n        },\n        type: GraphQLString,\n        resolve: (parent, args) => changeNickname(args.firstName, args.nickname),\n      },\n    },\n  }),\n});\n\n// We want to make a GET request with ?query=<graphql query>\n// The event properties are specific to AWS. Other providers will differ.\nmodule.exports.query = (event, context, callback) =>\n  graphql(schema, event.queryStringParameters.query)\n    .then(\n    result => callback(null, { statusCode: 200, body: JSON.stringify(result) }),\n    err => callback(err)\n    );\n",
         "config": {
           "runtime": "nodejs10.x",
           "handler": "query",
@@ -47,6 +47,15 @@
               "Resource": "arn:aws:dynamodb:us-east-1:*:table/graphql-api-dev"
             }
           ]
+        },
+        "testCases": {
+          "6e6472e0-fea8-4930-9b94-6c85a46804dd": {
+            "id": "6e6472e0-fea8-4930-9b94-6c85a46804dd",
+            "name": "Test event",
+            "functionId": "c685cb15-6d7d-44c8-82ab-8544bfcaef59",
+            "event": "{\"key1\": \"value1\", \"key2\": \"value2\", \"key3\": \"value3\"}",
+            "eventTemplate": "hello-world"
+          }
         }
       },
       "a8fbe21d-049f-4726-9268-6d3e392132d5": {
@@ -129,6 +138,44 @@
           "stageMode": 0,
           "stageName": "dev"
         }
+      },
+      "ddbgraphqlApiDev": {
+        "name": "ddbgraphqlApiDev",
+        "type": "DynamoDB",
+        "config": {
+          "mode": 0,
+          "operation": "update",
+          "table": {
+            "arn": "",
+            "name": "graphql-api-dev",
+            "partitionKey": "firstName",
+            "partitionKeyType": "S",
+            "hasSortKey": false,
+            "sortKey": "",
+            "sortKeyType": "S",
+            "payPerRequest": true,
+            "mode": 0
+          },
+          "isGlobalEditMode": false,
+          "parameters": {
+            "TableName": "@{process.env.DYNAMODB_TABLE}",
+            "Key": {
+              "firstName": "@{firstName}"
+            },
+            "UpdateExpression": "set ",
+            "ExpressionAttributeValues": {
+              ":nickname": "@{nickname}"
+            },
+            "ConditionExpression": "",
+            "ExpressionAttributeNames": {}
+          },
+          "triggerParams": {},
+          "validator": {
+            "validatableFields": {},
+            "validity": true
+          },
+          "valid": true
+        }
       }
     },
     "customTemplate": {
@@ -205,7 +252,7 @@
     "projectRegion": "us-east-1",
     "platform": "AWS",
     "platformRegions": {},
-    "lastSave": 1576227270073
+    "lastSave": 1576228712284
   },
   "VCS_STATE": {
     "provider": "GitHub",
