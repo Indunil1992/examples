@@ -1,44 +1,60 @@
 {
   "EDITOR_STATE": {
     "allProjectFiles": {
-      "a89625cd-cf2a-4f9d-b319-cb10b02f8807": {
-        "id": "a89625cd-cf2a-4f9d-b319-cb10b02f8807",
+      "7a600ecd-431c-47f5-9c66-db73bc8287cc": {
+        "id": "7a600ecd-431c-47f5-9c66-db73bc8287cc",
         "parent": null,
-        "name": "aws-node-alexa-skill",
+        "name": "serverless-dynamodb-backup",
         "type": "DIRECTORY",
         "isDirectory": true,
         "children": [
-          "46ed4d4d-2f62-4457-8a06-c00d11d9dd56"
+          "cf872ede-15b1-4cff-a079-3ee92cf37560"
         ],
         "isRemovable": false,
-        "filePath": "aws-node-alexa-skill"
+        "filePath": "serverless-dynamodb-backup"
       },
-      "46ed4d4d-2f62-4457-8a06-c00d11d9dd56": {
-        "id": "46ed4d4d-2f62-4457-8a06-c00d11d9dd56",
-        "parent": "a89625cd-cf2a-4f9d-b319-cb10b02f8807",
+      "cf872ede-15b1-4cff-a079-3ee92cf37560": {
+        "id": "cf872ede-15b1-4cff-a079-3ee92cf37560",
+        "parent": "7a600ecd-431c-47f5-9c66-db73bc8287cc",
         "name": "handler.js",
         "type": "JS_LAMBDA",
         "isDirectory": false,
         "children": [],
         "isRemovable": true,
-        "filePath": "aws-node-alexa-skill/handler.js",
-        "code": "'use strict';\n\n// Returns a random integer between min (inclusive) and max (inclusive)\nconst getRandomInt = (min, max) => Math.floor(Math.random() * ((max - min) + 1)) + min;\n\nmodule.exports.luckyNumber = (event, context, callback) => {\n  const upperLimit = event.request.intent.slots.UpperLimit.value || 100;\n  const number = getRandomInt(0, upperLimit);\n  const response = {\n    version: '1.0',\n    response: {\n      outputSpeech: {\n        type: 'PlainText',\n        text: `Your lucky number is ${number}`,\n       \n      },\n      shouldEndSession: false,\n      \n    },\n  };\n\n  callback(null, response);\n};\n",
+        "filePath": "serverless-dynamodb-backup/handler.js",
+        "code": "'use strict';\n\nconst aws = require('aws-sdk');\n\nconst s3 = new aws.S3({ region: 'ap-southeast-1' });\n\nmodule.exports.backup = (event, context, callback) => {\n  const records = event.Records;\n\n  Promise.all(records.map((record) => {\n    const keysList = Object.keys(record.dynamodb.Keys).map((key) => {\n      const keyDefinition = record.dynamodb.Keys[key];\n      const type = Object.keys(keyDefinition)[0];\n      const value = keyDefinition[type];\n      return value;\n    });\n\n    const keysString = keysList.join('/');\n    const image = aws.DynamoDB.Converter.output({ M: record.dynamodb.NewImage });\n\n    return s3.putObject({\n      Bucket: process.env.BUCKET,\n      Key: `${process.env.PREFIX}/${process.env.TABLE}/${keysString}/image.json`,\n      Body: JSON.stringify(image),\n    }).promise()\n      .then((response) => {\n        console.log(`${keysString} snapshot done`, response);\n      })\n      .catch((err) => {\n        console.error('Error', err);\n      });\n  }))\n    .then(v => callback(null, v), callback);\n};\n",
         "config": {
           "runtime": "nodejs8.10",
-          "handler": "luckyNumber",
-          "timeout": 60,
+          "handler": "backup",
+          "timeout": 300,
           "memory": 128,
           "layers": []
         },
-        "triggers": [
-          {
-            "resourceName": "apigusEast1slackapichatspost",
-            "config": {}
-          }
-        ]
+        "triggers": [],
+        "customSecurityPolicy": {
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject"
+              ],
+              "Resource": "arn:aws:s3:::EXAMPLE/FOO/staging_EXAMPLE/*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "dynamodb:GetRecords",
+                "dynamodb:GetShardIterator",
+                "dynamodb:DescribeStream",
+                "dynamodb:ListStreams"
+              ],
+              "Resource": "arn:aws:dynamodb:ap-southeast-1:*:table/staging_EXAMPLE/stream/*"
+            }
+          ]
+        }
       },
-      "e2801a2f-2495-4901-a9e4-69aef71888e3": {
-        "id": "e2801a2f-2495-4901-a9e4-69aef71888e3",
+      "18a0bc26-c469-4a72-af65-f3258c336abb": {
+        "id": "18a0bc26-c469-4a72-af65-f3258c336abb",
         "parent": null,
         "name": "serverless.yml",
         "type": "YAML_FILE",
@@ -46,32 +62,10 @@
         "children": [],
         "isRemovable": true,
         "filePath": "serverless.yml",
-        "code": "service: aws-node-alexa-skill\n\nframeworkVersion: \">=1.4.0 <2.0.0\"\n\nprovider:\n  name: aws\n  runtime: nodejs8.10\n\nfunctions:\n  luckyNumber:\n    handler: handler.luckyNumber\n    events:\n      - alexaSkill\n"
+        "code": "service: serverless-dynamodb-backup\n\ncustom:\n  bucket: EXAMPLE\n  dynamoDBTableName: \"${opt:stage, self:provider.stage}_EXAMPLE\"\n  prefix: FOO\n\nprovider:\n  name: aws\n  runtime: nodejs6.10\n  stage: staging\n  iamRoleStatements:\n    - Effect: Allow\n      Action:\n        - s3:PutObject\n      Resource: \"arn:aws:s3:::${self:custom.bucket}/${self:custom.prefix}/${self:custom.dynamoDBTableName}/*\"\n    - Effect: Allow\n      Action:\n        - \"dynamodb:GetRecords\"\n        - \"dynamodb:GetShardIterator\"\n        - \"dynamodb:DescribeStream\"\n        - \"dynamodb:ListStreams\"\n      Resource: \"arn:aws:dynamodb:ap-southeast-1:*:table/${self:custom.dynamoDBTableName}/stream/*\"\n\nfunctions:\n  backup:\n    handler: handler.backup\n    environment:\n      STAGE: \"${opt:stage, self:provider.stage}\"\n      BUCKET: \"${self:custom.bucket}\"\n      TABLE: \"${self:custom.dynamoDBTableName}\"\n      PREFIX: \"${self:custom.prefix}\"\n    timeout: 300\n"
       },
-      "7bff9887-fe32-4fc8-a26e-bbd793c09f04": {
-        "id": "7bff9887-fe32-4fc8-a26e-bbd793c09f04",
-        "parent": null,
-        "name": "package.json",
-        "type": "JSON_FILE",
-        "isDirectory": false,
-        "children": [],
-        "isRemovable": true,
-        "filePath": "package.json",
-        "code": "{\n  \"name\": \"aws-alexa-skill\",\n  \"version\": \"1.0.0\",\n  \"description\": \"This example demonstrates how to use an AWS Lambdas for your custom Alexa skill.\",\n  \"author\": \"\",\n  \"license\": \"MIT\"\n}\n"
-      },
-      "e48877dd-21c7-42f5-93d9-c6292111f63f": {
-        "id": "e48877dd-21c7-42f5-93d9-c6292111f63f",
-        "parent": null,
-        "name": ".gitignore",
-        "type": "TEXT_FILE",
-        "isDirectory": false,
-        "children": [],
-        "isRemovable": true,
-        "filePath": ".gitignore",
-        "code": "node_modules\n.serverless\n"
-      },
-      "34b299b5-b0cd-4616-a604-984d9837b51e": {
-        "id": "34b299b5-b0cd-4616-a604-984d9837b51e",
+      "0278f766-a843-4def-9cb0-de3615b6fe7a": {
+        "id": "0278f766-a843-4def-9cb0-de3615b6fe7a",
         "parent": null,
         "name": "README.md",
         "type": "MARKDOWN_FILE",
@@ -79,49 +73,63 @@
         "children": [],
         "isRemovable": true,
         "filePath": "README.md",
-        "code": "<!--\ntitle: 'AWS Serverless Alexa Skill example in NodeJS'\ndescription: 'This example demonstrates how to setup your own Alexa skill using AWS Lambdas.'\nlayout: Doc\nframework: v1\nplatform: AWS\nlanguage: nodeJS\nauthorLink: 'https://github.com/rupakg'\nauthorName: 'Rupak Ganguly'\nauthorAvatar: 'https://avatars0.githubusercontent.com/u/8188?v=4&s=140'\n-->\n# Serverless Alexa Skill Example\n\nThis example demonstrates how to setup your own Alexa skill using AWS Lambdas.\n\n## Use-cases\n\n- Building custom Alexa skills\n\n## How it works\n\nIn the Alexa Developer Portal you can add your own skill. To do so you need to define the available intents and then connect them to a Lambda. You can update and define the Lambda with Serverless.\n\n## Setup\n\nIn order to deploy the endpoint simply run\n\n```bash\nserverless deploy\n```\n\nThe expected result should be similar to:\n\n```bash\nServerless: Packaging service...\nServerless: Uploading CloudFormation file to S3...\nServerless: Uploading service .zip file to S3 (378 B)...\nServerless: Updating Stack...\nServerless: Checking Stack update progress...\n.........\nServerless: Stack update finished...\nServerless: Removing old service versions...\nService Information\nservice: aws-node-alexa-skill-2\nstage: dev\nregion: us-east-1\napi keys:\n  None\nendpoints:\n  None\nfunctions:\n  aws-node-alexa-skill-2-dev-luckyNumber: arn:aws:lambda:us-east-1:377024778620:function:aws-node-alexa-skill-2-dev-luckyNumber\n\n```\n\nNext we need to setup an Alexa skill. Once you've signed up for the Amazon Developer Platform visit `https://developer.amazon.com/edw/home.html`. There you should see the following screen:\n\n![Welcome](https://cloud.githubusercontent.com/assets/223045/21183285/8403b37c-c211e6-89c0-d36582010af8.png)\n\nNext click on `Add a new Skill`:\n\n![Add Skill](https://cloud.githubusercontent.com/assets/223045/21183286/840512c211e6-84945b6b45e83b.png)\n\nGo through the steps and fill in all the required fields e.g. Intent Schema and Sample Utterances:\n\nIntent Schema\n```\n{\n  \"intents\": [\n    {\n      \"intent\": \"GetLuckyNumbers\",\n      \"slots\": [\n        {\n          \"name\": \"UpperLimit\",\n          \"type\": \"AMAZON.NUMBER\"\n        }\n      ]\n    }\n  ]\n}\n```\n\nSample Utterances\n```\nGetLuckyNumbers what are my lucky numbers\nGetLuckyNumbers tell me my lucky numbers\nGetLuckyNumbers what are my lucky numbers lower than {UpperLimit}\nGetLuckyNumbers tell me my lucky numbers lower than {UpperLimit}\n```\n\n![Skill Information](https://cloud.githubusercontent.com/assets/223045/21183279/83eec4c211e6-841b-d8925f0804a5.png)\n![Interaction Model](https://cloud.githubusercontent.com/assets/223045/21183280/83ef3dc211e6-87a5-bb8dcbb903f8.png)\n\nFill in the Lambda ARN which was printed or run `serverless info` to retrieve the ARN again.\n\n![Configuration](https://cloud.githubusercontent.com/assets/223045/21183281/83f170c211e6-89b7-2f6d96ac559c.png)\n\nNext up visit the test page, fill in the utterance and click on `Ask LuckyNumbers`.\n\n![Test](https://cloud.githubusercontent.com/assets/223045/21183283/83f1f6c211e6-858d-41b1a3154e91.png)\n![Test](https://cloud.githubusercontent.com/assets/223045/21183282/83f1f6c211e6-974e-b7c051ffb6eb.png)\n![Test](https://cloud.githubusercontent.com/assets/223045/21183284/83f708ac-c211e6-819489e8f3e494.png)\n![Test](https://cloud.githubusercontent.com/assets/223045/21185805/78c1dfc211e6-9cf9-ce44edc30cdd.gif)\n\nYou should have received a response containing the text `Your lucky number is` followed by your lucky number :)\n\nCheck out this [Amazon guide](https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/overviews/steps-to-build-a-custom-skill#your-skill-is-published-now-what) to learn more about how to submit your skill for publication.\n"
+        "code": "<!--\ntitle: TODO\ndescription: This examples shows your how to create a backup of your DynamoDB table to S3.\nlayout: Doc\nframework: v1\nplatform: AWS\nlanguage: nodeJS\nauthorLink: 'https://github.com/kaihendry'\nauthorName: 'Kai Hendry'\nauthorAvatar: 'https://avatars3.githubusercontent.com/u/765871?v=4&s=140'\n-->\n# DynamoDB stream events to AWS S3\n\nWhich effectively creates a **backup of your dynamoDB table** assuming an event\nwas caught for every record. Hint: [Introduce a new field\n\"backedup\"](https://s.natalian.org/2022/rupdated.js) to effectively\ntrigger a backup.\n\nNOTE: DynamoDB triggers need to be manually associated / setup with the lambda function.\n\n* https://ap-southeast-1.console.aws.amazon.com/dynamodb/home?region=ap-southeast-1#tables:selected=staging_EXAMPLE\n* https://ap-southeast-1.console.aws.amazon.com/dynamodb/home?region=ap-southeast-1#tables:selected=production_EXAMPLE\n\nUpon deletion the image.json becomes an empty file.\n"
+      },
+      "86d863b6-773d-443a-a58a-b318d405bf36": {
+        "id": "86d863b6-773d-443a-a58a-b318d405bf36",
+        "parent": null,
+        "name": "package.json",
+        "type": "JSON_FILE",
+        "isDirectory": false,
+        "children": [],
+        "isRemovable": true,
+        "filePath": "package.json",
+        "code": "{\n  \"name\": \"aws-node-dynamodb-backup\",\n  \"version\": \"1.0.0\",\n  \"description\": \"Serverless DynamoDB changes backed up to S3\",\n  \"repository\": \"\",\n  \"author\": \"Kai Hendry <hendry@spuul.com>\",\n  \"license\": \"MIT\",\n  \"dependencies\": {\n    \"aws-sdk\": \"^2.73.0\"\n  }\n}\n"
       }
     },
-    "deletedFiles": [],
-    "rootNode": "a89625cd-cf2a-4f9d-b319-cb10b02f8807",
+    "rootNode": "7a600ecd-431c-47f5-9c66-db73bc8287cc",
     "openFiles": [
-      "46ed4d4d-2f62-4457-8a06-c00d11d9dd56",
-      "e2801a2f-2495-4901-a9e4-69aef71888e3"
+      "cf872ede-15b1-4cff-a079-3ee92cf37560"
     ],
-    "currentFileId": "46ed4d4d-2f62-4457-8a06-c00d11d9dd56",
-    "resources": {
-      "apigusEast1slackapichatspost": {
-        "name": "apigusEast1slackapichatspost",
-        "type": "API_GATEWAY",
-        "config": {
-          "selectedRegion": "us-east-1",
-          "apiMode": 1,
-          "apiName": "slack_api",
-          "apiId": "gzxv3u0uhe",
-          "endpointType": "EDGE",
-          "rootResourceId": "cxna1m1fmi",
-          "existingResources": {
-            "/": "cxna1m1fmi",
-            "/chats": "qlk5ig"
-          },
-          "resourceMode": 1,
-          "resourcePath": "/chats",
-          "resourceName": "chats",
-          "resourceId": "qlk5ig",
-          "restMethod": "POST",
-          "proxyIntegration": false,
-          "enableCORS": false,
-          "stageMode": 0,
-          "stageName": "test",
-          "mode": 1
-        }
-      }
-    },
+    "currentFileId": "cf872ede-15b1-4cff-a079-3ee92cf37560",
+    "resources": {},
     "customTemplate": {
       "dialect": "CloudFormation",
-      "definitions": {}
+      "definitions": null
     },
     "envVariables": [
+      {
+        "lambdaId": "cf872ede-15b1-4cff-a079-3ee92cf37560",
+        "varKey": "STAGE",
+        "varValue": "staging",
+        "shouldPersist": true,
+        "displayOnly": false,
+        "editable": true
+      },
+      {
+        "lambdaId": "cf872ede-15b1-4cff-a079-3ee92cf37560",
+        "varKey": "BUCKET",
+        "varValue": "EXAMPLE",
+        "shouldPersist": true,
+        "displayOnly": false,
+        "editable": true
+      },
+      {
+        "lambdaId": "cf872ede-15b1-4cff-a079-3ee92cf37560",
+        "varKey": "TABLE",
+        "varValue": "staging_EXAMPLE",
+        "shouldPersist": true,
+        "displayOnly": false,
+        "editable": true
+      },
+      {
+        "lambdaId": "cf872ede-15b1-4cff-a079-3ee92cf37560",
+        "varKey": "PREFIX",
+        "varValue": "FOO",
+        "shouldPersist": true,
+        "displayOnly": false,
+        "editable": true
+      },
       {
         "lambdaId": "all",
         "varKey": "SIGMA_AWS_ACC_ID",
@@ -132,17 +140,23 @@
       }
     ],
     "packageJSON": {
-      "dependencies": {}
+      "dependencies": {
+        "aws-sdk": {
+          "name": "aws-sdk",
+          "language": "javascript",
+          "version": "^2.73.0"
+        }
+      }
     }
   },
   "PROJECT_META": {
-    "projectName": "aws-alexa-skill",
-    "projectDescription": "This example demonstrates how to use an AWS Lambdas for your custom Alexa skill.",
+    "projectName": "aws-node-dynamodb-backup",
+    "projectDescription": "Serverless DynamoDB changes backed up to S3",
     "projectVersion": "1.0.0",
     "projectRegion": "us-east-1",
     "platform": "AWS",
     "platformRegions": {},
-    "lastSave": 1562244055954
+    "lastSave": 1576212611528
   },
   "VCS_STATE": {
     "provider": "GitHub",
