@@ -22,10 +22,8 @@ const promisify = foo => new Promise((resolve, reject) => {
 
 const getGreeting = firstName => promisify(callback =>
   dynamoDb.get({
-    TableName: 'graphql-api-dev',
-    Key: {
-      'firstName': indunil
-    }
+    TableName: process.env.DYNAMODB_TABLE,
+    Key: { firstName },
   }, callback))
   .then((result) => {
     if (!result.Item) {
@@ -37,14 +35,12 @@ const getGreeting = firstName => promisify(callback =>
 
 const changeNickname = (firstName, nickname) => promisify(callback =>
   dynamoDb.update({
-    TableName: 'graphql-api-dev',
-    Key: {
-      'firstName': indunil
-    },
+    TableName: process.env.DYNAMODB_TABLE,
+    Key: { firstName },
+    UpdateExpression: 'SET nickname = :nickname',
     ExpressionAttributeValues: {
-      ':nickname': sachithra
+      ':nickname': nickname,
     },
-    UpdateExpression: 'set '
   }, callback))
   .then(() => nickname);
 
@@ -82,7 +78,7 @@ const schema = new GraphQLSchema({
 // The event properties are specific to AWS. Other providers will differ.
 module.exports.query = (event, context, callback) =>
   graphql(schema, event.queryStringParameters.query)
-    .then(
+  .then(
     result => callback(null, { statusCode: 200, body: JSON.stringify(result) }),
     err => callback(err)
-    );
+  );
